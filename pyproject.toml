@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "airheater"
+version = "2.0.0"
+description = "Air heater process simulator, control application and stability analysis (LAB 3, Industry 4.0 and Cyber Security)"
+requires-python = ">=3.8"
+# No runtime dependencies on purpose: the control application is standard
+# library only, so a Raspberry Pi needs nothing installed to run the process.
+dependencies = []
+
+[project.optional-dependencies]
+# Offline work: batch simulation, tuning sweeps, frequency response, plots.
+analysis = ["numpy>=1.20", "matplotlib>=3.5"]
+# Real hardware (NI USB-6008). Also needs the NI-DAQmx driver.
+daq = ["nidaqmx>=0.6"]
+# Publishing process data to an MQTT broker.
+mqtt = ["paho-mqtt>=1.6"]
+azure = ["azure-iot-device>=2.14,<3"]
+
+[tool.setuptools.packages.find]
+include = ["airheater*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

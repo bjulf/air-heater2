@@ -17,9 +17,16 @@ from airheater.telemetry.simulator import SequenceCounter, encode_telemetry, sen
 async def run(args):
     client = None
     if args.transport == "azure":
+        from dotenv import load_dotenv
+        # Resolve relative to the repository, not the shell's working directory.
+        # Keep externally supplied values and preserve literal credential bytes.
+        load_dotenv(Path(__file__).resolve().parents[1] / ".env",
+                    override=False, interpolate=False)
+        connection = os.environ.get("IOTHUB_DEVICE_CONNECTION_STRING", "").strip()
+        if not connection:
+            raise ValueError("Set IOTHUB_DEVICE_CONNECTION_STRING in .env or the environment")
         from azure.iot.device import Message
         from azure.iot.device.aio import IoTHubDeviceClient
-        connection = os.environ.get("IOTHUB_DEVICE_CONNECTION_STRING", "")
         fields = dict(part.split("=", 1) for part in connection.split(";") if "=" in part)
         if fields.get("DeviceId") != args.device_id:
             raise ValueError("DeviceId in connection string must match --device-id")

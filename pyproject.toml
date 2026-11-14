@@ -18,7 +18,7 @@ analysis = ["numpy>=1.20", "matplotlib>=3.5"]
 daq = ["nidaqmx>=0.6"]
 # Publishing process data to an MQTT broker.
 mqtt = ["paho-mqtt>=1.6"]
-azure = ["azure-iot-device>=2.14,<3"]
+azure = ["azure-iot-device>=2.14,<3", "python-dotenv>=1.0,<2"]
 
 [tool.setuptools.packages.find]
 include = ["airheater*"]

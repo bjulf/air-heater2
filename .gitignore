@@ -1,3 +1,7 @@
 .state/
 __pycache__/
 *.egg-info/
+.venv/
+.env
+.env.*
+!.env.example

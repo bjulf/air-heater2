@@ -13,16 +13,40 @@ input applied over the following interval. No setpoint is invented.
 
 ## Azure IoT Hub
 
-Create/register an IoT Hub device named `airheater-sim-1`, install the extra,
-and set its **device** connection string in the current PowerShell session:
+Create/register an IoT Hub device named `airheater-sim-1`. From the repository
+root (the directory containing `pyproject.toml`), install the Azure extra:
 
 ```powershell
-python -m pip install -e "./code[azure]"
-$env:IOTHUB_DEVICE_CONNECTION_STRING = '<device connection string>'
-python code/apps/simulator_publisher.py --transport azure --duration 120
+python -m pip install -e ".[azure]"
+Copy-Item .env.example .env
+notepad .env
 ```
 
-Never commit the actual connection string. Use `--websockets` if port 8883 is
+On the Pi, create a private file before inserting the secret:
+
+```bash
+cd ~/air-heater2
+source .venv/bin/activate
+python -m pip install -e '.[azure]'
+(umask 077; cp -n .env.example .env)
+chmod 600 .env
+nano .env
+```
+
+Set `IOTHUB_DEVICE_CONNECTION_STRING` to the device connection string on one
+line. In nano, save with Ctrl+O, Enter, then exit with Ctrl+X. Start sending:
+
+```bash
+python apps/simulator_publisher.py --transport azure --duration 30 --step-at 5
+```
+
+The publisher loads `.env` beside `pyproject.toml`, regardless of the working
+directory. Existing environment variables take priority; use
+`unset IOTHUB_DEVICE_CONNECTION_STRING` on the Pi if an old exported value
+should be replaced by the file. Console-only simulation does not need dotenv.
+The file is plaintext, not an encrypted secret store. `.env` and `.env.*` are
+ignored by Git; `.env.example` is the only committed template. Never commit
+the actual connection string. Use `--websockets` if port 8883 is
 blocked (uses port 443). Observe device-to-cloud events in Azure IoT Explorer
 to confirm delivery. PostgreSQL ingestion and Grafana are the next stage;
 the existing control-loop collector does not accept this simulation schema.

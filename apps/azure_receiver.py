@@ -9,6 +9,11 @@ from airheater.telemetry.ingestion import EventHandler
 from airheater.storage.postgres_simulation import PostgresSimulationStore, PostgresCheckpointStore
 
 
+def receive_error(context, error):
+    # Exception messages may include credentials; class name alone is safe.
+    print("Azure receive error ({}); SDK will retry".format(type(error).__name__), flush=True)
+
+
 def main():
     # SDK logs/errors can contain connection details. Emit only our own messages.
     logging.disable(logging.CRITICAL)
@@ -36,7 +41,7 @@ def main():
             with client:
                 print("Receiving simulation events; Ctrl-C to stop", flush=True)
                 client.receive(on_event=EventHandler(PostgresSimulationStore(connect)),
-                               on_error=lambda *_: print("Azure receive error; SDK will retry", flush=True),
+                               on_error=receive_error,
                                starting_position="-1")
         finally:
             os.close(fd)

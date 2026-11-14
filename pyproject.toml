@@ -19,6 +19,7 @@ daq = ["nidaqmx>=0.6"]
 # Publishing process data to an MQTT broker.
 mqtt = ["paho-mqtt>=1.6"]
 azure = ["azure-iot-device>=2.14,<3", "python-dotenv>=1.0,<2"]
+receiver = ["azure-eventhub>=5.12,<6", "psycopg[binary]>=3.2,<4", "python-dotenv>=1.0,<2"]
 
 [tool.setuptools.packages.find]
 include = ["airheater*"]

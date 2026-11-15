@@ -1,5 +1,14 @@
 # LAB 3 – konfigurasjon og presentasjonsnotater
 
+## Ny kontrolltelemetri klargjort lokalt 15. november 2026
+
+`apps/control_publisher.py` kombinerer den analyserte 10 Hz PI-reguleringen med
+1 Hz Azure-telemetri (temperatur, settpunkt og pådrag). Filter og faste regulatorparametere
+beholdes lokalt på Pi; cloud brukes bare til overvåking. Ny mottaker, settpunktkolonne
+og oppdatert dashboard er klargjort. **Denne versjonen er ikke live-verifisert ennå.**
+Følg [CONTROL_TELEMETRY.md](CONTROL_TELEMETRY.md) for Git-oppdatering og akseptansetest.
+Resten beskriver den tidligere verifiserte åpne kjeden.
+
 Sist oppdatert: 15. november 2026. Dokumentet bygger på kildekoden, brukerens terminalutskrifter og skjermbilder fra Azure/pgAdmin. Det inneholder ingen passord eller tilgangsnøkler. Azure-innstillinger som bare ble anbefalt, er merket særskilt.
 
 ## 1. Kort forklaring til presentasjonen

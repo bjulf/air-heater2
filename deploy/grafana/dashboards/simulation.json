@@ -1,0 +1,146 @@
+{
+  "uid": "airheater-simulation",
+  "title": "Air heater simulation and PI control",
+  "schemaVersion": 39,
+  "version": 2,
+  "timezone": "utc",
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Temperature and setpoint",
+      "type": "timeseries",
+      "datasource": {
+        "type": "postgres",
+        "uid": "airheater-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT measured_at AS time, temperature_c AS value, device_id || ' / measured' AS metric FROM simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring}) AND temperature_c IS NOT NULL ORDER BY measured_at"
+        },
+        {
+          "refId": "B",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT measured_at AS time, setpoint_c AS value, device_id || ' / setpoint' AS metric FROM simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring}) AND setpoint_c IS NOT NULL ORDER BY measured_at"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Heater input",
+      "type": "timeseries",
+      "datasource": {
+        "type": "postgres",
+        "uid": "airheater-postgres"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT measured_at AS time, heater_voltage AS value, device_id AS metric FROM simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring}) ORDER BY measured_at"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Age of latest measurement (all history)",
+      "type": "stat",
+      "datasource": {
+        "type": "postgres",
+        "uid": "airheater-postgres"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No measurements",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 15
+              },
+              {
+                "color": "red",
+                "value": 60
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT EXTRACT(EPOCH FROM (now() - max(measured_at)))::double precision AS age_seconds FROM simulation_measurements WHERE device_id IN (${device:sqlstring})"
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "device",
+        "label": "Source",
+        "type": "query",
+        "datasource": {
+          "type": "postgres",
+          "uid": "airheater-postgres"
+        },
+        "query": "SELECT DISTINCT device_id FROM simulation_measurements ORDER BY device_id",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      }
+    ]
+  }
+}

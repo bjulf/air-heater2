@@ -1,5 +1,18 @@
 # Air heater simulator, control application and stability analysis
 
+For the new 10 Hz PI simulation with 1 Hz Azure telemetry, additive database
+migration and Pi/VM rollout commands, see [CONTROL_TELEMETRY.md](CONTROL_TELEMETRY.md).
+This version is prepared locally; live deployment remains to be performed.
+
+For the completed simulation-only control theory study, including the Norwegian
+report and sampled stability analysis with the measurement filter, see
+[CONTROL_THEORY.md](CONTROL_THEORY.md). Reproduce it with
+`python demos/control_study.py`. Physical testing is excluded following the
+teacher clarification reported by the student.
+
+For the selected simulation → Azure IoT Hub → PostgreSQL → Grafana path,
+see [INGESTION.md](INGESTION.md). The MQTT/control collector below is a separate legacy path.
+
 For standalone simulator publishing to stdout or Azure IoT Hub, see
 [SIMULATOR.md](SIMULATOR.md). It uses a bounded in-memory queue and a persistent
 sequence counter, without running the controller.

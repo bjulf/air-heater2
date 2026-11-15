@@ -31,13 +31,18 @@ def main():
             return psycopg.connect(dsn, connect_timeout=10, options="-c statement_timeout=15000 -c timezone=UTC")
         state = root / ".state"
         with receiver_lock(state):
+            store = PostgresSimulationStore(connect)
+            if not store.control_schema_ready():
+                print('Database migration required: run deploy/control_telemetry_migration.sql as administrator.',
+                      file=sys.stderr)
+                return 1
             checkpoints = PostgresCheckpointStore(connect)
             client = EventHubConsumerClient.from_connection_string(
                 connection, consumer_group=group, checkpoint_store=checkpoints,
                 logging_enable=False)
             with client:
-                print("Receiving simulation events; Ctrl-C to stop", flush=True)
-                client.receive(on_event=EventHandler(PostgresSimulationStore(connect)),
+                print("Receiving simulation and control events; Ctrl-C to stop", flush=True)
+                client.receive(on_event=EventHandler(store),
                                on_error=receive_error,
                                starting_position="-1")
     except KeyboardInterrupt:
@@ -48,4 +53,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

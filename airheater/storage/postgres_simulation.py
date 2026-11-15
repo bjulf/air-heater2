@@ -7,9 +7,28 @@ class PostgresSimulationStore:
     def __init__(self, connect):
         self.connect = connect
 
+    def control_schema_ready(self):
+        """Fail startup before consuming events when the migration is absent."""
+        expected = {'setpoint_c'}
+        with self.connect() as connection:
+            rows = connection.execute("""SELECT column_name FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'simulation_measurements'""").fetchall()
+        return expected.issubset({row[0] for row in rows})
+
     def insert(self, data, enqueued):
         # psycopg3 closes and commits on normal context exit, rolls back on error.
         with self.connect() as connection:
+            if data['schema'] == 'airheater.control.v1':
+                connection.execute("""
+                    INSERT INTO simulation_measurements
+                    (device_id, sequence_number, measured_at, elapsed_seconds,
+                     temperature_c, heater_voltage, enqueued_at, setpoint_c)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+                    ON CONFLICT (device_id, sequence_number) DO NOTHING
+                """, (data['device_id'], data['sequence_number'], data['timestamp'],
+                      data['elapsed_seconds'], data['temperature_c'], data['heater_voltage'],
+                      enqueued, data['setpoint_c']))
+                return
             connection.execute("""
                 INSERT INTO simulation_measurements
                 (device_id, sequence_number, measured_at, elapsed_seconds,

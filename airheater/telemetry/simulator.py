@@ -1,6 +1,7 @@
 """Open-loop telemetry with a bounded RAM queue and persistent sequence counter."""
 import asyncio
 import json
+import inspect
 import os
 from pathlib import Path
 
@@ -47,10 +48,14 @@ class SequenceCounter:
         self.close()
 
 
-async def send_pending(queue, send, retry_seconds=2.0):
+async def send_pending(queue, send, retry_seconds=2.0, prepare=None):
     """Retry the identical serialized message; acknowledge only successful sends."""
     while True:
         body = await queue.get()
+        if prepare is not None:
+            body = prepare(body)
+            if inspect.isawaitable(body):
+                body = await body
         while True:
             try:
                 await send(body)

@@ -10,6 +10,9 @@ class InvalidTelemetry(ValueError):
     pass
 
 
+CONTROL_RANGES = {'setpoint_c': (-50, 150)}
+
+
 def utc_timestamp(value):
     if not isinstance(value, str) or len(value) > 64:
         raise InvalidTelemetry("timestamp type")
@@ -43,7 +46,11 @@ def decode_simulation(body, authenticated_device):
     except (ValueError, UnicodeError, RecursionError):
         raise InvalidTelemetry("invalid JSON") from None
     fields = {"schema", "device_id", "sequence_number", "timestamp", "elapsed_seconds", "temperature_c", "heater_voltage"}
-    if not isinstance(data, dict) or set(data) != fields or data["schema"] != "airheater.simulation.v1":
+    if not isinstance(data, dict):
+        raise InvalidTelemetry("schema/fields")
+    control = data.get('schema') == 'airheater.control.v1'
+    expected = fields | set(CONTROL_RANGES) if control else fields
+    if set(data) != expected or data.get('schema') not in ('airheater.simulation.v1', 'airheater.control.v1'):
         raise InvalidTelemetry("schema/fields")
     device = data["device_id"]
     if not isinstance(device, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", device):
@@ -53,7 +60,10 @@ def decode_simulation(body, authenticated_device):
     sequence = data["sequence_number"]
     if type(sequence) is not int or not 1 <= sequence <= 9223372036854775807:
         raise InvalidTelemetry("sequence range/type")
-    for field, low, high in (("elapsed_seconds", 0, 315360000), ("temperature_c", -50, 150), ("heater_voltage", 0, 5)):
+    ranges = dict(elapsed_seconds=(0, 315360000), temperature_c=(-50, 150), heater_voltage=(0, 5))
+    if control:
+        ranges.update(CONTROL_RANGES)
+    for field, (low, high) in ranges.items():
         value = data[field]
         if type(value) not in (int, float) or not low <= value <= high or not math.isfinite(value):
             raise InvalidTelemetry("numeric range/type")

@@ -1,5 +1,11 @@
 # Simulation → IoT Hub → PostgreSQL → Grafana
 
+For the new closed-loop PI publisher, run the additive migration and update the
+receiver before sending control events. See [CONTROL_TELEMETRY.md](CONTROL_TELEMETRY.md)
+for the required order and commands. Both simulation.v1 and control.v1 are accepted
+by the updated receiver. The historical deployment notes below describe the earlier
+open-loop publisher.
+
 Current deployed configuration and live verification (2026-11-14) are recorded
 in [PRESENTATION_NOTES.md](PRESENTATION_NOTES.md). The working deployment uses
 Azure PostgreSQL and an Azure VM receiver; the Compose instructions below are

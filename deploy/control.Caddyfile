@@ -1,0 +1,4 @@
+# Add this site block to the existing Caddyfile if other sites are already hosted.
+iotlab1.swedencentral.cloudapp.azure.com {
+    reverse_proxy 127.0.0.1:8765
+}

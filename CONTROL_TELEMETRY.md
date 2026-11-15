@@ -1,5 +1,9 @@
 # PI-regulering på Pi med Azure-telemetri
 
+Ny funksjon: statistikk og settpunktfelt direkte i Azure Managed Grafana er
+beskrevet i [GRAFANA_CONTROL.md](GRAFANA_CONTROL.md). Resten av denne veiledningen
+beskriver vanlig telemetridrift uten det valgfrie flagget --remote-setpoint.
+
 Status 15. november 2026: studenten har bekreftet 600 kontrolloppdateringer og
 60 Azure-sendinger uten dropp eller etterslep, med alle 60 målinger lagret i
 PostgreSQL (sekvens 161–220). Dashboardet fungerer etter import med valgt

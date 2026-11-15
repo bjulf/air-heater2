@@ -1,5 +1,9 @@
 # Air heater simulator, control application and stability analysis
 
+For dashboard statistics and setpoint control directly from Azure Managed Grafana,
+see [GRAFANA_CONTROL.md](GRAFANA_CONTROL.md). The command path is opt-in and needs
+the VM command API and TLS setup before it can be used live.
+
 For the new 10 Hz PI simulation with 1 Hz Azure telemetry, additive database
 migration and Pi/VM rollout commands, see [CONTROL_TELEMETRY.md](CONTROL_TELEMETRY.md).
 This version is prepared locally; live deployment remains to be performed.

@@ -14,6 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from airheater import AirHeaterSim, PIController, LowPassFilter, SimulatedIO, run_control_loop
 from airheater.telemetry.simulator import SequenceCounter, send_pending
 from airheater.telemetry.azure_transport import create_transport
+from airheater.control.setpoint import RemoteSetpoint, install_method_handler
 
 TS, KP, TI, TF = .1, .52, 18., 2.
 
@@ -37,6 +38,8 @@ def parse_args(argv=None):
     p.add_argument('--drain-timeout', type=float, default=10)
     p.add_argument('--state-dir', default=str(Path(__file__).resolve().parents[1]/'.state'))
     p.add_argument('--websockets', action='store_true')
+    p.add_argument('--remote-setpoint', action='store_true',
+                   help='accept setSetpoint direct methods; disable automatic setpoint step')
     args = p.parse_args(argv)
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}', args.device_id):
         p.error('invalid device-id')
@@ -56,6 +59,8 @@ def parse_args(argv=None):
         p.error('publish-interval must be a positive multiple of 0.1 s')
     if args.continuous:
         args.duration = None
+    if args.remote_setpoint and (args.transport != 'azure' or not 25 <= args.setpoint <= 36):
+        p.error('remote-setpoint requires Azure and initial setpoint from 25 to 36 C')
     return args
 
 
@@ -71,6 +76,9 @@ async def run(args, send_override=None, retry_seconds=2.):
     stats = dict(samples=0, generated=0, dropped=0, sent=0,
                  jitter_max_s=0., jitter_sum_s=0.)
     producer = worker = None
+    remote = RemoteSetpoint(args.setpoint) if args.remote_setpoint else None
+    if remote is not None and client is not None:
+        install_method_handler(client, remote)
 
     def enqueue(snapshot):
         stats['generated'] += 1
@@ -90,6 +98,8 @@ async def run(args, send_override=None, retry_seconds=2.):
         def reference(t):
             sim.params.T_env = (18.5 if args.disturbance_at is not None
                                 and t >= args.disturbance_at else 21.5)
+            if remote is not None:
+                return remote.poll()
             return args.setpoint if t < args.step_at else args.target
 
         with SimulatedIO(sim) as io:
@@ -105,9 +115,15 @@ async def run(args, send_override=None, retry_seconds=2.):
                     setpoint_c=round(s.setpoint, 2))
                 loop.call_soon_threadsafe(enqueue, snapshot)
 
-            run_control_loop(io, controller, reference, TS, duration=args.duration,
-                measurement_filter=filt, on_sample=sample, realtime=True,
-                stop=stopped.is_set, history=False)
+            try:
+                if remote is not None:
+                    remote.start()
+                run_control_loop(io, controller, reference, TS, duration=args.duration,
+                    measurement_filter=filt, on_sample=sample, realtime=True,
+                    stop=stopped.is_set, history=False)
+            finally:
+                if remote is not None:
+                    remote.close()
 
     async def delivered(body):
         await send(body)
@@ -173,6 +189,9 @@ def main():
     args = parse_args()
     if args.transport == 'azure':
         logging.disable(logging.CRITICAL)
+    if args.remote_setpoint:
+        print('Remote setpoint enabled: 25-36 C; automatic step disabled; initial {:.2f} C'.format(
+              args.setpoint), file=sys.stderr, flush=True)
     try:
         asyncio.run(run(args))
     except KeyboardInterrupt:

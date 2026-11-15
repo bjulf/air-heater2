@@ -1,0 +1,427 @@
+{
+  "uid": "airheater-simulation",
+  "title": "Air heater control and statistics",
+  "schemaVersion": 39,
+  "version": 5,
+  "timezone": "utc",
+  "refresh": "5s",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Temperature and setpoint",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_POSTGRES}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT measured_at AS time, temperature_c AS value, device_id || ' / measured' AS metric FROM simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring}) AND temperature_c IS NOT NULL ORDER BY measured_at"
+        },
+        {
+          "refId": "B",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT measured_at AS time, setpoint_c AS value, device_id || ' / setpoint' AS metric FROM simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring}) AND setpoint_c IS NOT NULL ORDER BY measured_at"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Heater input",
+      "type": "timeseries",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_POSTGRES}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 9
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt",
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT measured_at AS time, heater_voltage AS value, device_id AS metric FROM simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring}) ORDER BY measured_at"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Age of latest measurement (all history)",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_POSTGRES}"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "No measurements",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "yellow",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 60
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT EXTRACT(EPOCH FROM (now() - max(measured_at)))::double precision AS age_seconds FROM simulation_measurements WHERE device_id IN (${device:sqlstring})"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Gjennomsnittlig absolutt avvik",
+      "description": "Prøvegjennomsnitt av |settpunkt - rå temperatur| i valgt periode. Gamle målinger uten settpunkt utelates. Ikke regulatorens filtrerte avvik.",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_POSTGRES}"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 2,
+          "noValue": "Ingen målinger"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT avg(abs(setpoint_c - temperature_c)) AS \"Absolutt avvik\" FROM public.simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring}) AND setpoint_c IS NOT NULL"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Min. / maks. temperatur",
+      "description": "Laveste og høyeste rå temperatur i valgt periode og valgte enheter.",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_POSTGRES}"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "decimals": 2,
+          "noValue": "Ingen målinger"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT min(temperature_c) AS \"Minimum\", max(temperature_c) AS \"Maksimum\" FROM public.simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring})"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Gjennomsnittlig pådrag",
+      "description": "Prøvegjennomsnitt i valgt periode. Pådrag i volt, ikke elektrisk effekt eller energi.",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_POSTGRES}"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 9,
+        "w": 6,
+        "h": 5
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "volt",
+          "decimals": 2,
+          "noValue": "Ingen målinger"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "values": false,
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": ""
+        },
+        "orientation": "auto",
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT avg(heater_voltage) AS \"Pådrag\" FROM public.simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring})"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "volkovlabs-form-panel",
+      "title": "Endre settpunkt på Pi",
+      "description": "Gjelder airheater-sim-1. Kontrollnøkkel fylles inn per kommando og lagres ikke i JSON. Bekreftelsen kommer fra Pi. Grafen oppdateres ved neste telemetrimelding.",
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 9
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "${DS_POSTGRES}"
+      },
+      "targets": [],
+      "options": {
+        "sync": false,
+        "updateEnabled": "manual",
+        "layout": {
+          "variant": "single",
+          "orientation": "vertical",
+          "padding": 12,
+          "sectionVariant": "default",
+          "sections": []
+        },
+        "elements": [
+          {
+            "uid": "setpoint-field",
+            "id": "setpoint_c",
+            "title": "Nytt settpunkt [°C]",
+            "type": "number",
+            "value": 34,
+            "width": null,
+            "labelWidth": 18,
+            "tooltip": "",
+            "section": "",
+            "hidden": false,
+            "unit": "",
+            "min": 25,
+            "max": 36,
+            "step": 0.01
+          },
+          {
+            "uid": "operator-key",
+            "id": "operator_token",
+            "title": "Kontrollnøkkel",
+            "type": "password",
+            "value": "",
+            "width": null,
+            "labelWidth": 18,
+            "tooltip": "",
+            "section": "",
+            "hidden": false,
+            "unit": ""
+          },
+          {
+            "uid": "command-status",
+            "id": "status",
+            "title": "Status",
+            "type": "disabled",
+            "value": "Ingen kommando sendt",
+            "width": null,
+            "labelWidth": 18,
+            "tooltip": "",
+            "section": "",
+            "hidden": false,
+            "unit": ""
+          }
+        ],
+        "initial": {
+          "method": "-",
+          "code": "context.panel.enableSubmit();",
+          "url": "",
+          "datasource": "",
+          "header": []
+        },
+        "update": {
+          "method": "-",
+          "code": "return (async () => {\n  const form = context.panel.formValue();\n  const value = Number(form.setpoint_c);\n  const token = String(form.operator_token || '').trim();\n  const api = context.grafana.templateService.replace('${control_api_url}').replace(/\\/$/, '');\n  if (!Number.isFinite(value) || value < 25 || value > 36) {\n    context.grafana.notifyError(['Settpunkt', 'Velg en temperatur fra 25 til 36 °C.']);\n    return;\n  }\n  let endpoint;\n  try { endpoint = new URL(api); } catch (_) { endpoint = null; }\n  if (!endpoint || endpoint.protocol !== 'https:' || endpoint.hostname.endsWith('.invalid') ||\n      endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {\n    context.grafana.notifyError(['Oppsett mangler', 'Sett control_api_url til API-ets HTTPS-adresse.']);\n    return;\n  }\n  if (token.length < 32) {\n    context.grafana.notifyError(['Kontrollnøkkel', 'Skriv inn kontrollnøkkelen fra VM-oppsettet.']);\n    return;\n  }\n  context.panel.disableSubmit();\n  context.panel.patchFormValue({status: 'Venter på bekreftelse fra Pi …'});\n  const abort = new AbortController();\n  const timer = setTimeout(() => abort.abort(), 15000);\n  try {\n    const response = await fetch(api + '/api/setpoint', {\n      method: 'POST',\n      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},\n      body: JSON.stringify({setpoint_c: Math.round(value * 100) / 100}),\n      signal: abort.signal,\n      credentials: 'omit',\n      cache: 'no-store'\n    });\n    const data = await response.json();\n    if (!response.ok || data.status !== 'applied') {\n      const reason = {\n        400: 'Ugyldig settpunkt.', 401: 'Kontrollnøkkelen er feil.',\n        403: 'Grafana-adressen er ikke tillatt i API-oppsettet.',\n        409: 'En kommando behandles allerede. Prøv igjen etter bekreftelse.',\n        429: 'Vent minst ett sekund mellom kommandoer.',\n        502: 'API-et fikk ikke gyldig svar fra IoT Hub eller Pi.',\n        503: 'Pi er ikke tilkoblet eller fjernstyringsmodus er ikke startet.',\n        504: 'Bekreftelse mangler. Kontroller aktivt settpunkt i telemetrien før nytt forsøk.'\n      }[response.status] || 'Kommandoen ble ikke bekreftet.';\n      throw new Error(reason);\n    }\n    const message = `${data.device_id}: ${Number(data.setpoint_c).toFixed(2)} °C tatt i bruk`;\n    context.panel.patchFormValue({status: message});\n    context.grafana.notifySuccess(['Settpunkt bekreftet', message]);\n    context.grafana.refresh();\n  } catch (error) {\n    const message = error.name === 'AbortError'\n      ? 'Tidsavbrudd: kontroller aktivt settpunkt i telemetrien før nytt forsøk.'\n      : (error.message === 'Failed to fetch'\n        ? 'Ingen API-forbindelse. Kontroller HTTPS, nettverk og tillatt Grafana-adresse.'\n        : error.message);\n    context.panel.patchFormValue({status: message});\n    context.grafana.notifyError(['Settpunkt ikke bekreftet', message]);\n  } finally {\n    clearTimeout(timer);\n    // Keep this credential out of panel defaults and dashboard exports.\n    context.panel.patchFormValue({operator_token: ''});\n    context.panel.enableSubmit();\n  }\n})();\n",
+          "confirm": false,
+          "url": "",
+          "datasource": "",
+          "header": []
+        },
+        "resetAction": {
+          "mode": "custom",
+          "code": "",
+          "confirm": false
+        },
+        "submit": {
+          "variant": "primary",
+          "text": "Send settpunkt",
+          "icon": "cloud-upload",
+          "foregroundColor": "",
+          "backgroundColor": ""
+        },
+        "reset": {
+          "variant": "hidden",
+          "text": "Reset",
+          "icon": "process"
+        },
+        "saveDefault": {
+          "variant": "hidden",
+          "text": "Save Default",
+          "icon": "save"
+        },
+        "buttonGroup": {
+          "orientation": "left",
+          "size": "md"
+        },
+        "elementValueChanged": "context.panel.enableSubmit();"
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "device",
+        "label": "Source",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "${DS_POSTGRES}"
+        },
+        "query": "SELECT DISTINCT device_id FROM simulation_measurements ORDER BY device_id",
+        "refresh": 1,
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        }
+      },
+      {
+        "name": "control_api_url",
+        "label": "Control API URL",
+        "type": "constant",
+        "hide": 2,
+        "query": "https://iotlab1.swedencentral.cloudapp.azure.com",
+        "current": {
+          "text": "https://iotlab1.swedencentral.cloudapp.azure.com",
+          "value": "https://iotlab1.swedencentral.cloudapp.azure.com"
+        }
+      }
+    ]
+  },
+  "__inputs": [
+    {
+      "name": "DS_POSTGRES",
+      "label": "Air heater PostgreSQL",
+      "description": "Select the PostgreSQL data source connected to the airheater database",
+      "type": "datasource",
+      "pluginId": "grafana-postgresql-datasource",
+      "pluginName": "PostgreSQL"
+    }
+  ],
+  "__requires": [
+    {
+      "type": "panel",
+      "id": "volkovlabs-form-panel",
+      "name": "Business Forms",
+      "version": "4.4.0"
+    }
+  ]
+}

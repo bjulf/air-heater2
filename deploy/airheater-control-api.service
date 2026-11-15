@@ -1,0 +1,25 @@
+[Unit]
+Description=Air heater authenticated setpoint API
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=azureuser
+Group=azureuser
+WorkingDirectory=/home/azureuser/air-heater2
+ExecStart=/home/azureuser/air-heater2/.venv/bin/python -u apps/control_api.py
+Restart=on-failure
+RestartSec=10s
+KillSignal=SIGINT
+TimeoutStopSec=20s
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

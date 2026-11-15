@@ -6,6 +6,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from airheater.telemetry.ingestion import EventHandler
+from airheater.telemetry.receiver_lock import receiver_lock
 from airheater.storage.postgres_simulation import PostgresSimulationStore, PostgresCheckpointStore
 
 
@@ -29,11 +30,7 @@ def main():
         def connect():
             return psycopg.connect(dsn, connect_timeout=10, options="-c statement_timeout=15000 -c timezone=UTC")
         state = root / ".state"
-        state.mkdir(exist_ok=True)
-        lock = state / "azure_receiver.lock"
-        # Single local process guard. Never touches publisher counter files.
-        fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        try:
+        with receiver_lock(state):
             checkpoints = PostgresCheckpointStore(connect)
             client = EventHubConsumerClient.from_connection_string(
                 connection, consumer_group=group, checkpoint_store=checkpoints,
@@ -43,9 +40,6 @@ def main():
                 client.receive(on_event=EventHandler(PostgresSimulationStore(connect)),
                                on_error=receive_error,
                                starting_position="-1")
-        finally:
-            os.close(fd)
-            lock.unlink()
     except KeyboardInterrupt:
         return
     except Exception:

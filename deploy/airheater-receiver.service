@@ -1,0 +1,23 @@
+[Unit]
+Description=Air heater IoT Hub to PostgreSQL receiver
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=azureuser
+Group=azureuser
+WorkingDirectory=/home/azureuser/air-heater2
+ExecStart=/home/azureuser/air-heater2/.venv/bin/python -u /home/azureuser/air-heater2/apps/azure_receiver.py
+Restart=on-failure
+RestartSec=10s
+KillSignal=SIGINT
+TimeoutStopSec=30s
+UMask=0077
+NoNewPrivileges=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

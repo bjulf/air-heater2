@@ -1,5 +1,11 @@
 # Simulation → IoT Hub → PostgreSQL → Grafana
 
+Current deployed configuration and live verification (2026-11-14) are recorded
+in [PRESENTATION_NOTES.md](PRESENTATION_NOTES.md). The working deployment uses
+Azure PostgreSQL and an Azure VM receiver; the Compose instructions below are
+an alternative local setup. The earlier implementation-only test status below
+predates the successful live ingestion and checkpoint-persistence checks.
+
 The publisher continues unchanged, without PI control or SQLite buffering.
 Run the receiver on the PC/server with PostgreSQL access; the Pi needs only
 its device secret. Use Python 3.12 (the verified Pi environment is `.venv-azure`).

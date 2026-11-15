@@ -128,11 +128,18 @@ før checkpoint er uendret. Gamle åpne målinger vises fortsatt med NULL-settpu
 
 ## 6. Grafana og eventuell forstyrrelsestest
 
-Dashboardet i deploy/grafana/dashboards/simulation.json viser rå temperatur og
+Importer **deploy/grafana/simulation-import.json** via
+Dashboards → New → Import. Velg din eksisterende PostgreSQL-datakilde i feltet
+**Air heater PostgreSQL** og klikk Import. Ved samme dashboard-UID som tidligere
+kan du erstatte den eksisterende importen. Valget brukes både av panelene og
+Source-variabelen. Datakilden må allerede være konfigurert og bestå Save & test.
+
+Dashboardet viser rå temperatur og
 settpunkt sammen, varmepådrag og alder på siste måling. Det viser ingen filtrert
-temperatur eller regulatorparametere. Importer dashboardet og bruk PostgreSQL-
-datakilden med UID airheater-postgres, eller endre UID-ene i JSON til din datakilde.
-Det er ennå ikke live-verifisert med denne versjonen.
+temperatur eller regulatorparametere. simulation.json er varianten for
+filprovisionering med fast datakilde-UID airheater-postgres. Den separate
+importfilen lar deg velge datakilde under import og trenger ikke dette UID-et.
+Datavising i brukerens Grafana er ennå ikke bekreftet etter denne rettingen.
 
 Etter vellykket korttest kan du demonstrere kaldere innløpsluft:
 

@@ -84,7 +84,7 @@ python -m pip install -e '.[azure]'
 python -m unittest discover -s tests -p test_control_publisher.py
 ```
 
-Det skal kjøres **7 tester**, ikke 0. Python 3.12-miljøet .venv-azure brukes.
+Det skal kjøres **8 tester**, ikke 0. Python 3.12-miljøet .venv-azure brukes.
 Ingen ZIP-overføring er nødvendig. Kontroller kildefilene hvis Git gir konflikt
 eller testfilen mangler. .env og eksisterende enhetscounter skal beholdes.
 
@@ -144,7 +144,27 @@ Ved 150 s endres modellens innløp fra 21,5 til 18,5 °C. Det sendes omtrent 300
 meldinger. Parametrene endres ikke fra cloud. Jitter og sendestatistikk rapporteres
 lokalt ved avslutning; jitter er målt kontrolltiming, ikke nettverkslatens.
 
-## Verifikasjon
+## Kontinuerlig kjøring
+
+Etter oppdatering med git pull kan programmet kjøres til Ctrl-C:
+
+```bash
+python -u apps/control_publisher.py --transport azure --continuous --publish-interval 15
+```
+
+Kontroll og målefilter kjører fortsatt hvert 0,1 sekund. Bare publiseringen
+reduseres til hvert 15. sekund, omtrent 5760 meldinger per døgn. Med standard
+publisering hvert sekund blir det 86400 meldinger per døgn. IoT Hub Free har
+8000 kvoteenheter per døgn, med 0,5 KB måleenhet; faktisk forbruk avhenger av
+meldingsstørrelse og annen trafikk. Se
+[Microsofts kvotedokumentasjon](https://learn.microsoft.com/en-us/azure/iot-hub/iot-hub-devguide-quotas-throttling).
+
+Programmet har ingen voksende prøvehistorikk og beholder den avgrensede sendekøen.
+Det kjøres i forgrunnen i terminalen; dette installerer ikke en tjeneste eller
+automatisk oppstart. --continuous og --duration kan ikke brukes samtidig.
+Settpunktet endres én gang etter 20 s og holdes deretter på 34 °C.
+
+## Verifikasjon av kontinuerlig modus
 
 Lokale tester dekker kontroll til serialisering og mottakervalidering,
 parameterisert SQL, sekvensbevaring, retry uten ny identitet, full kø, nettverk

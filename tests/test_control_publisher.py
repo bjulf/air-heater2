@@ -118,8 +118,9 @@ class ControlPublisherTests(unittest.TestCase):
         async def scenario(directory):
             async def send(body):
                 await asyncio.sleep(30)
-            args = app.parse_args(['--device-id', 'control-test', '--duration', '30',
+            args = app.parse_args(['--device-id', 'control-test', '--continuous',
                                    '--state-dir', directory])
+            self.assertIsNone(args.duration)
             task = asyncio.create_task(app.run(args, send_override=send))
             await asyncio.sleep(.25)
             task.cancel()
@@ -139,6 +140,20 @@ class ControlPublisherTests(unittest.TestCase):
                 with self.assertRaises(OSError):
                     await app.run(args, send_override=send)
             self.assertFalse((Path(directory)/'control-test.sequence.lock').exists())
+        with tempfile.TemporaryDirectory() as directory:
+            asyncio.run(scenario(directory))
+
+    def test_publish_interval_does_not_change_control_rate(self):
+        async def scenario(directory):
+            sent = []
+            async def send(body):
+                sent.append(json.loads(body))
+            args = app.parse_args(['--device-id', 'control-test', '--duration', '1.2',
+                '--publish-interval', '.5', '--state-dir', directory])
+            stats = await app.run(args, send_override=send)
+            self.assertEqual(stats['samples'], 12)
+            self.assertEqual(stats['sent'], 3)
+            self.assertTrue(.45 < sent[1]['elapsed_seconds'] < .65)
         with tempfile.TemporaryDirectory() as directory:
             asyncio.run(scenario(directory))
 

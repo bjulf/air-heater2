@@ -1,4 +1,4 @@
-"""Run the analysed PI simulation at 10 Hz; publish control telemetry at 1 Hz."""
+"""Run the analysed PI simulation at 10 Hz with configurable telemetry timing."""
 import argparse
 import asyncio
 from datetime import datetime, timezone
@@ -22,7 +22,12 @@ def parse_args(argv=None):
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument('--transport', choices=('stdout', 'azure'), default='stdout')
     p.add_argument('--device-id', default='airheater-sim-1')
-    p.add_argument('--duration', type=float, default=120)
+    timing = p.add_mutually_exclusive_group()
+    timing.add_argument('--duration', type=float, default=120)
+    timing.add_argument('--continuous', action='store_true',
+                        help='run until Ctrl-C, with bounded memory')
+    p.add_argument('--publish-interval', type=float, default=1,
+                   help='telemetry interval in seconds; control stays at 0.1 s')
     p.add_argument('--setpoint', type=float, default=28)
     p.add_argument('--target', type=float, default=34)
     p.add_argument('--step-at', type=float, default=20)
@@ -35,7 +40,8 @@ def parse_args(argv=None):
     args = p.parse_args(argv)
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_-]{0,63}', args.device_id):
         p.error('invalid device-id')
-    numbers = [args.duration, args.setpoint, args.target, args.step_at, args.drain_timeout]
+    numbers = [args.duration, args.setpoint, args.target, args.step_at, args.drain_timeout,
+               args.publish_interval]
     if args.disturbance_at is not None:
         numbers.append(args.disturbance_at)
     if not all(math.isfinite(v) for v in numbers):
@@ -45,6 +51,11 @@ def parse_args(argv=None):
             or not 20 <= args.target <= 50
             or (args.disturbance_at is not None and args.disturbance_at < 0)):
         p.error('invalid duration, setpoint, target, disturbance or queue settings')
+    if (args.publish_interval < TS or
+            not math.isclose(args.publish_interval/TS, round(args.publish_interval/TS), abs_tol=1e-8)):
+        p.error('publish-interval must be a positive multiple of 0.1 s')
+    if args.continuous:
+        args.duration = None
     return args
 
 
@@ -86,7 +97,7 @@ async def run(args, send_override=None, retry_seconds=2.):
                 stats['samples'] += 1
                 stats['jitter_sum_s'] += s.jitter
                 stats['jitter_max_s'] = max(stats['jitter_max_s'], s.jitter)
-                if s.k % 10:
+                if s.k % round(args.publish_interval/TS):
                     return
                 snapshot = dict(schema='airheater.control.v1', device_id=args.device_id,
                     timestamp=datetime.now(timezone.utc).isoformat(), elapsed_seconds=s.t,

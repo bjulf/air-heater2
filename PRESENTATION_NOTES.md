@@ -261,7 +261,7 @@ Lokal kode ble pushet til GitHub og hentet på VM. Verifiserte lokale commitrefe
 | Ende til ende til database | pgAdmin viste målinger fra airheater-sim-1 med omtrent ett sekund mellom måletidspunktene |
 | Konkret måling | Sekvens 140, 2026-11-14 15:47:51.499927 UTC, temperatur ca. 25,8135 °C |
 | Persistens av checkpoint | pgAdmin viste consumer group airheater-postgres, partisjon 1, offset 34952, Azure-sekvens 59 |
-| Testet omstart og gjenopptakelse | Ikke bekreftet gjennomført |
+| Testet omstart og gjenopptakelse | Live bekreftet 15. november: sekvens 151–160 sendt under stopp og lagret etter manuell oppstart; se del 17 |
 | Live retry etter databaseutfall | Ikke bekreftet gjennomført |
 | Live duplikatreplay | Ikke bekreftet gjennomført |
 | Live ugyldige meldinger | Ikke bekreftet gjennomført |
@@ -357,3 +357,18 @@ Ved gjennomlesing til dette notatet inneholdt `deploy/azure_roles.sql` nå en SE
 Implementert: deploy/airheater-receiver.service og deploy/SYSTEMD.md med azureuser, eksisterende .env, boot-oppstart, restart og journallogger. Linux bruker nå OS-lås uten automatisk sletting av låsefiler. Kun én mottaker per consumer group gjelder fortsatt.
 
 Lokalt testet på Windows/Python 3.14: 6 ingestion-tester bestått, 1 PostgreSQL-integrasjonstest hoppet over. De 2 nye Linux-låsetestene er hoppet over på Windows og må kjøres på VM. git diff --check bestått. SSH-forsøk fra arbeidsmiljøet ga Permission denied på nettverksforbindelsen; dette fastslår ikke VM-ens tilstand. Ingen installasjon, live restart, etterslepstest eller Grafana-tilkobling er verifisert i denne økten.
+
+## 17. Live gjenopptakelse 15. november 2026
+
+Bekreftet fra brukerens VM-terminal og pgAdmin-resultater:
+
+- Mottakeren var stoppet mens Pi sendte ti målinger, simulatorsekvens 151–160.
+- Måletidene var 12:54:00.669339–12:54:09.667596 UTC.
+- Etter manuell oppstart ble alle ti lagret med received_at fra 12:56:14.406612 til 12:56:18.497584 UTC. Dataene ble altså hentet inn etter omtrent to minutters stopp; intervallene er ikke et mål på vanlig nettverksforsinkelse.
+- Checkpoint for airheater-postgres, partisjon 1, gikk fra offset 40896 / Azure-sekvens 69 til offset 46840 / Azure-sekvens 79.
+- Simulatorsekvens og Azure-sekvens er fortsatt ulike tellere. Ingen checkpoint eller publisher-counter ble nullstilt.
+- Før oppstart viste pgrep ingen mottaker, mens gammel .state/azure_receiver.lock lå igjen. Databasesjekken viste forbindelse og lesetilgang OK samt TLS active=True. Brukeren bekreftet deretter at mottakeren startet etter veiledning om pull og fjerning av den gamle låsen; ny commit-ID på VM ble ikke vist.
+
+Dette verifiserer manuell gjenopptakelse og innhenting av ti gyldige målinger sendt mens mottakeren var stoppet. Hardt krasj midt i en transaksjon, live duplikatreplay, databaseutfall og systemd-restart er ikke verifisert.
+
+Brukeren har valgt å la systemd-filene ligge i repoet uten installasjon. Videre drift er manuell. Neste planlagte steg er lokal Grafana mot Azure PostgreSQL med airheater_grafana og verify-full.

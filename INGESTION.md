@@ -107,9 +107,12 @@ keys, naive/future timestamps and identity mismatches are rejected.
 
 **Run exactly ONE receiver for this consumer group across all machines.** The
 checkpoint adapter keeps partition ownership in memory, not distributed leases;
-it supports a single lab receiver. `.state/azure_receiver.lock` prevents a second
-process in this checkout. After a hard crash, remove only that lock, only after
-confirming the receiver is stopped. Never delete/reset publisher `.sequence`
+it supports a single lab receiver. On Linux, an OS-managed flock on
+`.state/azure_receiver.process.lock` prevents a second process in this checkout
+and releases automatically on process death. Never delete that file. A legacy
+`.state/azure_receiver.lock` blocks migration until manually inspected after
+confirmed process stop. Windows retains the earlier existence lock. See
+[systemd installation](deploy/SYSTEMD.md). Never delete/reset publisher `.sequence`
 files. Multiple hosts need a distributed checkpoint/lease store before scaling.
 
 ## 4. Grafana

@@ -2,6 +2,7 @@
 import asyncio
 from contextlib import contextmanager
 from datetime import datetime, timezone
+from decimal import Decimal
 import importlib.util
 import json
 from pathlib import Path
@@ -93,6 +94,11 @@ class ControlPublisherTests(unittest.TestCase):
             self.assertEqual([x['setpoint_c'] for x in rows], [28, 34, 34])
             self.assertTrue(all(set(x) == set(payload()) for x in rows))
             self.assertTrue(all(0 <= x['heater_voltage'] <= 5 for x in rows))
+            for row in rows:
+                for field in ('elapsed_seconds', 'temperature_c', 'heater_voltage', 'setpoint_c'):
+                    self.assertGreaterEqual(Decimal(str(row[field])).as_tuple().exponent, -2)
+            self.assertEqual(rows[0]['temperature_c'], 27.95)
+            self.assertEqual(rows[0]['heater_voltage'], 1.86)
             await app.run(app.parse_args(['--device-id', 'control-test', '--duration', '.2',
                                         '--state-dir', directory]), send_override=send)
             self.assertEqual(json.loads(sent[-1])['sequence_number'], 4)

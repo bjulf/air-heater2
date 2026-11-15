@@ -100,8 +100,9 @@ async def run(args, send_override=None, retry_seconds=2.):
                 if s.k % round(args.publish_interval/TS):
                     return
                 snapshot = dict(schema='airheater.control.v1', device_id=args.device_id,
-                    timestamp=datetime.now(timezone.utc).isoformat(), elapsed_seconds=s.t,
-                    temperature_c=s.measured, heater_voltage=s.u, setpoint_c=s.setpoint)
+                    timestamp=datetime.now(timezone.utc).isoformat(), elapsed_seconds=round(s.t, 2),
+                    temperature_c=round(s.measured, 2), heater_voltage=round(s.u, 2),
+                    setpoint_c=round(s.setpoint, 2))
                 loop.call_soon_threadsafe(enqueue, snapshot)
 
             run_control_loop(io, controller, reference, TS, duration=args.duration,

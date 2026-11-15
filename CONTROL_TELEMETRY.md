@@ -1,6 +1,9 @@
 # PI-regulering på Pi med Azure-telemetri
 
-Status: kode klargjort lokalt; ny kontrollkjede må fortsatt testes på Pi og Azure.
+Status 15. november 2026: studenten har bekreftet 600 kontrolloppdateringer og
+60 Azure-sendinger uten dropp eller etterslep, med alle 60 målinger lagret i
+PostgreSQL (sekvens 161–220). Dashboardet fungerer etter import med valgt
+PostgreSQL-datakilde. Kontinuerlig modus er lagt til og testet lokalt.
 Git brukes for overføring. ZIP-pakken og scp-veiledningen fra den første kladden
 skal ikke brukes for denne versjonen.
 
@@ -19,6 +22,9 @@ sigma = 0,15 °C. Kontrollfilteret er inkludert i stabilitetsanalysen.
 Nytt JSON-format er airheater.control.v1 og har bare de sju eksisterende basisfeltene
 (schema, device_id, sequence_number, timestamp, elapsed_seconds, temperature_c,
 heater_voltage), pluss **setpoint_c**. temperature_c er rå temperaturmåling med støy.
+Numeriske telemetriverdier (temperatur, settpunkt, pådrag og elapsed_seconds)
+avrundes til maksimalt to desimaler før sending. Modell, PI og filter beregnes
+med full presisjon. Tidsstempel og heltallssekvensnummer beholder sine formater.
 heater_voltage er pådraget i det påfølgende intervallet. Gamle simulation.v1-meldinger
 støttes fortsatt og har ikke settpunkt. Reguleringsavviket som bruker filtrert måling
 beregnes bare lokalt. Et avvik fra rå temperatur kan beregnes i visningen ved behov,
@@ -139,7 +145,7 @@ settpunkt sammen, varmepådrag og alder på siste måling. Det viser ingen filtr
 temperatur eller regulatorparametere. simulation.json er varianten for
 filprovisionering med fast datakilde-UID airheater-postgres. Den separate
 importfilen lar deg velge datakilde under import og trenger ikke dette UID-et.
-Datavising i brukerens Grafana er ennå ikke bekreftet etter denne rettingen.
+Studenten har bekreftet at dashboardet henter og viser data etter denne rettingen.
 
 Etter vellykket korttest kan du demonstrere kaldere innløpsluft:
 
@@ -175,9 +181,8 @@ Settpunktet endres én gang etter 20 s og holdes deretter på 34 °C.
 
 Lokale tester dekker kontroll til serialisering og mottakervalidering,
 parameterisert SQL, sekvensbevaring, retry uten ny identitet, full kø, nettverk
-som henger, filfeil og opprydding ved avbrudd. Ekte PostgreSQL-migrering, Pi-timing,
-Azure-levering og Grafana må fortsatt bekreftes under utrulling. Den tidligere
-60-sekunders konsolltesten gjaldt den utvidede kladden; nye tester verifiserer
-at den forenklede versjonen bare sender basisfeltene pluss settpunkt.
+som henger, filfeil og opprydding ved avbrudd. Pi-kjøring, Azure-levering, lagring i PostgreSQL og Grafana er bekreftet av
+studenten for 60-sekunders testen beskrevet øverst. Nye tester verifiserer at
+telemetrien bare inneholder basisfeltene pluss settpunkt, med maksimalt to desimaler.
 
 Analysen og en reproduksjonsveiledning er beskrevet i CONTROL_THEORY.md.

@@ -1,11 +1,23 @@
 # LAB 3 – konfigurasjon og presentasjonsnotater
 
+## Kontrollkjede og Grafana bekreftet 15. november 2026
+
+Studentens Pi-utskrift bekrefter 600 kontrolloppdateringer på 60 sekunder,
+60 sendinger, 0 dropp og 0 usendte. SQL-resultatet inneholder alle 60 målinger
+med sekvens 161–220, settpunktsprang 28 til 34 °C etter 20 s og siste rå
+temperatur 33,956 °C. Studenten har også bekreftet at Grafana-dashboardet fungerer
+etter import av simulation-import.json med valgt PostgreSQL-datakilde.
+Dette verifiserer kontrollkjeden Pi → IoT Hub → mottaker → PostgreSQL → Grafana
+for den gjennomførte testen. Langvarig uavbrutt drift er ikke dokumentert.
+Kontrolltelemetrien er nå avrundet til maksimalt to desimaler; denne siste
+formatendringen må hentes på Pi med git pull og restart av publisheren.
+
 ## Ny kontrolltelemetri klargjort lokalt 15. november 2026
 
 `apps/control_publisher.py` kombinerer den analyserte 10 Hz PI-reguleringen med
 1 Hz Azure-telemetri (temperatur, settpunkt og pådrag). Filter og faste regulatorparametere
 beholdes lokalt på Pi; cloud brukes bare til overvåking. Ny mottaker, settpunktkolonne
-og oppdatert dashboard er klargjort. **Denne versjonen er ikke live-verifisert ennå.**
+og oppdatert dashboard er klargjort. **Kontrollkjeden er nå live-verifisert; se bekreftelsen over.**
 Følg [CONTROL_TELEMETRY.md](CONTROL_TELEMETRY.md) for Git-oppdatering og akseptansetest.
 Resten beskriver den tidligere verifiserte åpne kjeden.
 

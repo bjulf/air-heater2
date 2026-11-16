@@ -1,0 +1,23 @@
+[Unit]
+Description=Air heater Pi control simulation and Azure publisher
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=bjulf
+Group=bjulf
+WorkingDirectory=/home/bjulf/air-heater2
+ExecStart=/home/bjulf/air-heater2/.venv-azure/bin/python -u apps/control_publisher.py --transport azure --continuous --publish-interval 15 --remote-setpoint --setpoint 28
+Restart=on-failure
+RestartSec=10s
+KillSignal=SIGINT
+TimeoutStopSec=45s
+UMask=0077
+NoNewPrivileges=true
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -27,7 +27,8 @@ eller databasemigrering er nødvendig.
 
 ```mermaid
 flowchart LR
-    G[Grafana: tallfelt og Send] -->|HTTPS| C[Caddy på VM]
+    G[Grafana: tallfelt og Send] -->|samme origin| PXY[Grafana datakildeproxy]
+    PXY -->|HTTPS| C[Caddy på VM]
     C -->|127.0.0.1:8765| A[Python kommando-API]
     A -->|HTTPS, tjenestenøkkel| H[IoT Hub: setSetpoint]
     H --> P[Pi: kø for settpunkt]
@@ -50,6 +51,29 @@ PostgreSQL-brukeren i Grafana beholder kun lesetilgang. API-et bruker ikke
 databasepassord. Azure-tjenestenøkkelen finnes bare i VM-ens private .env.
 API-et krever ingen operatørnøkkel. Alle som når API-adressen kan sende settpunkt.
 CORS begrenser hvilke nettleseropprinnelser som tillates, men autentiserer ikke brukere.
+
+## Påkrevd datakilde for settpunkt (CSP)
+
+Azure Managed Grafana blokkerer direkte nettleserkall til VM-en gjennom Content
+Security Policy (`connect-src`). Panelet bruker derfor Grafanas datakildeproxy.
+CORS-endringer på VM-en løser ikke en CSP-blokkering i Grafana.
+
+Før du sender settpunkt:
+
+1. I Grafana: Connections → Data sources → Add new data source → JSON API.
+2. Sett **Name** til nøyaktig `airheater-control-api`.
+3. Sett **URL** til `https://iotlab1.swedencentral.cloudapp.azure.com`.
+4. Bruk Server/Proxy hvis tilgangsmodus vises. Behold TLS-sertifikatvalidering.
+5. Lagre datakilden og importer det oppdaterte dashboardet.
+
+Dette er en egen datakilde; behold PostgreSQL-datakilden. Ingen nøkkel kreves.
+Panelet finner datakildens UID etter navn og sender én POST til
+`/api/datasources/proxy/uid/<uid>/api/setpoint`. Nettleseren bruker sin eksisterende
+Grafana-innlogging. VM-API-et har fortsatt ingen operatørautentisering.
+
+Hvis JSON API mangler, aktiver tillegget i Azure-ressursens Plugin management.
+Verifiser live med `applied` og oppdatert telemetri; lokale skjematester alene
+beviser ikke Azure-proxyens nettverkstilgang eller kommandooverføring.
 
 ## 1. Aktiver Business Forms
 
@@ -236,8 +260,8 @@ Ikke bruk --insecure eller slå av sertifikatkontroll. Ved problemer sjekkes
 
 Det finnes ikke noe Control key-felt. Azure-connection-stringen beholdes privat på VM-en.
 
-API-adressen er ferdig konfigurert i den skjulte konstantvariabelen
-control_api_url. Hvis VM-navnet endres, oppdater denne variabelen og Caddyfile.
+API-adressen konfigureres i JSON API-datakilden `airheater-control-api`.
+Hvis VM-navnet endres, oppdater datakildens URL og Caddyfile.
 Source-filteret påvirker statistikk og grafer. Kommandopanelet styrer bare den
 ene enheten API-et er konfigurert for, airheater-sim-1.
 

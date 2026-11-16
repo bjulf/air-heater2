@@ -61,10 +61,6 @@ def main():
             buttonGroup=dict(orientation='left', size='md'),
             elementValueChanged='context.panel.enableSubmit();'))
     d['panels'].append(panel)
-    d['templating']['list'].append(dict(name='control_api_url', label='Control API URL', type='constant',
-        hide=2, query='https://iotlab1.swedencentral.cloudapp.azure.com',
-        current=dict(text='https://iotlab1.swedencentral.cloudapp.azure.com',
-                     value='https://iotlab1.swedencentral.cloudapp.azure.com')))
     d['__requires'] = [dict(type='panel', id='volkovlabs-form-panel', name='Business Forms', version='4.4.0')]
     result = folder/'simulation-control-import.json'
     result.write_text(json.dumps(d, ensure_ascii=False, indent=2)+'\n', encoding='utf-8', newline='\n')

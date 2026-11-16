@@ -133,7 +133,7 @@ class ControlHandler(BaseHTTPRequestHandler):
         self.reply(200, {'status': 'ok'})
 
     def do_GET(self):
-        if self.path == '/health':
+        if self.path in ('/', '/health'):
             return self.reply(200, {'status': 'ready', 'device_id': self.server.commands.device_id})
         self.reply(404, {'status': 'not_found'})
 

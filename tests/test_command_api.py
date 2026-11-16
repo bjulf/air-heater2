@@ -31,12 +31,12 @@ class ControlApiTests(unittest.TestCase):
         self.server.server_close()
         self.thread.join(2)
 
-    def request(self, data='{"setpoint_c":32.123}', token=None, origin=ORIGIN, method='POST'):
+    def request(self, data='{"setpoint_c":32.123}', token=None, origin=ORIGIN, method='POST', path='/api/setpoint'):
         connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=3)
         headers = {'Content-Type': 'application/json', 'Origin': origin}
         if token is not None:
             headers['Authorization'] = 'Bearer '+token
-        connection.request(method, '/api/setpoint', body=data, headers=headers)
+        connection.request(method, path, body=data, headers=headers)
         response = connection.getresponse()
         result = response.status, json.loads(response.read()), dict(response.getheaders())
         connection.close()
@@ -48,6 +48,14 @@ class ControlApiTests(unittest.TestCase):
         self.assertEqual(body['setpoint_c'], 32.12)
         self.assertEqual(headers['Access-Control-Allow-Origin'], ORIGIN)
         self.commands.invoke.assert_called_once_with(32.12)
+
+    def test_datasource_base_url_health_check(self):
+        for path in ('/', '/health'):
+            code, body, _ = self.request(method='GET', path=path)
+            self.assertEqual(code, 200)
+            self.assertEqual(body, {'status': 'ready', 'device_id': 'test-device'})
+        self.assertEqual(self.request(method='GET', path='/missing')[0], 404)
+        self.commands.invoke.assert_not_called()
 
     def test_origin_and_validation_do_not_invoke(self):
         for token, origin, data, expected in [

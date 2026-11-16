@@ -1,7 +1,8 @@
 return (async () => {
-  const form = context.panel.formValue();
+  const form = typeof context.panel.formValue === 'function'
+    ? context.panel.formValue()
+    : context.panel.formValue;
   const value = Number(form.setpoint_c);
-  const token = String(form.operator_token || '').trim();
   const api = context.grafana.templateService.replace('${control_api_url}').replace(/\/$/, '');
   if (!Number.isFinite(value) || value < 25 || value > 36) {
     context.grafana.notifyError(['Setpoint', 'Enter a temperature between 25 and 36 °C.']);
@@ -14,10 +15,6 @@ return (async () => {
     context.grafana.notifyError(['Configuration required', 'Set control_api_url to the HTTPS address of the control API.']);
     return;
   }
-  if (token.length < 32) {
-    context.grafana.notifyError(['Control key', 'Enter the control key configured on the VM.']);
-    return;
-  }
   context.panel.disableSubmit();
   context.panel.patchFormValue({status: 'Waiting for confirmation from the Pi...'});
   const abort = new AbortController();
@@ -25,7 +22,7 @@ return (async () => {
   try {
     const response = await fetch(api + '/api/setpoint', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({setpoint_c: Math.round(value * 100) / 100}),
       signal: abort.signal,
       credentials: 'omit',
@@ -34,7 +31,7 @@ return (async () => {
     const data = await response.json();
     if (!response.ok || data.status !== 'applied') {
       const reason = {
-        400: 'Invalid setpoint.', 401: 'Incorrect control key.',
+        400: 'Invalid setpoint.',
         403: 'The Grafana origin is not allowed by the control API.',
         409: 'A command is already in progress. Wait for confirmation before trying again.',
         429: 'Wait at least one second between commands.',
@@ -58,8 +55,6 @@ return (async () => {
     context.grafana.notifyError(['Setpoint not confirmed', message]);
   } finally {
     clearTimeout(timer);
-    // Keep this credential out of panel defaults and dashboard exports.
-    context.panel.patchFormValue({operator_token: ''});
     context.panel.enableSubmit();
   }
 })();

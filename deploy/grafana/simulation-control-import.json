@@ -263,7 +263,7 @@
       "id": 7,
       "type": "volkovlabs-form-panel",
       "title": "Change Pi setpoint",
-      "description": "Controls airheater-sim-1. Enter the control key for each command; it is not stored in the dashboard JSON. Confirmation comes from the Pi. The chart updates with the next telemetry message.",
+      "description": "Controls airheater-sim-1 without an operator key. Confirmation comes from the Pi. The chart updates with the next telemetry message.",
       "gridPos": {
         "x": 0,
         "y": 14,
@@ -303,19 +303,6 @@
             "step": 0.01
           },
           {
-            "uid": "operator-key",
-            "id": "operator_token",
-            "title": "Control key",
-            "type": "password",
-            "value": "",
-            "width": null,
-            "labelWidth": 18,
-            "tooltip": "",
-            "section": "",
-            "hidden": false,
-            "unit": ""
-          },
-          {
             "uid": "command-status",
             "id": "status",
             "title": "Status",
@@ -338,7 +325,7 @@
         },
         "update": {
           "method": "-",
-          "code": "return (async () => {\n  const form = context.panel.formValue();\n  const value = Number(form.setpoint_c);\n  const token = String(form.operator_token || '').trim();\n  const api = context.grafana.templateService.replace('${control_api_url}').replace(/\\/$/, '');\n  if (!Number.isFinite(value) || value < 25 || value > 36) {\n    context.grafana.notifyError(['Setpoint', 'Enter a temperature between 25 and 36 °C.']);\n    return;\n  }\n  let endpoint;\n  try { endpoint = new URL(api); } catch (_) { endpoint = null; }\n  if (!endpoint || endpoint.protocol !== 'https:' || endpoint.hostname.endsWith('.invalid') ||\n      endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {\n    context.grafana.notifyError(['Configuration required', 'Set control_api_url to the HTTPS address of the control API.']);\n    return;\n  }\n  if (token.length < 32) {\n    context.grafana.notifyError(['Control key', 'Enter the control key configured on the VM.']);\n    return;\n  }\n  context.panel.disableSubmit();\n  context.panel.patchFormValue({status: 'Waiting for confirmation from the Pi...'});\n  const abort = new AbortController();\n  const timer = setTimeout(() => abort.abort(), 15000);\n  try {\n    const response = await fetch(api + '/api/setpoint', {\n      method: 'POST',\n      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},\n      body: JSON.stringify({setpoint_c: Math.round(value * 100) / 100}),\n      signal: abort.signal,\n      credentials: 'omit',\n      cache: 'no-store'\n    });\n    const data = await response.json();\n    if (!response.ok || data.status !== 'applied') {\n      const reason = {\n        400: 'Invalid setpoint.', 401: 'Incorrect control key.',\n        403: 'The Grafana origin is not allowed by the control API.',\n        409: 'A command is already in progress. Wait for confirmation before trying again.',\n        429: 'Wait at least one second between commands.',\n        502: 'The API did not receive a valid response from IoT Hub or the Pi.',\n        503: 'The Pi is offline or remote setpoint mode is not enabled.',\n        504: 'Confirmation is missing. Check the active setpoint in telemetry before retrying.'\n      }[response.status] || 'The command was not confirmed.';\n      throw new Error(reason);\n    }\n    const message = `${data.device_id}: ${Number(data.setpoint_c).toFixed(2)} °C applied`;\n    context.panel.patchFormValue({status: message});\n    context.grafana.notifySuccess(['Setpoint confirmed', message]);\n    context.grafana.refresh();\n  } catch (error) {\n    const message = error.name === 'AbortError'\n      ? 'Request timed out. Check the active setpoint in telemetry before retrying.'\n      : (error.message === 'Failed to fetch'\n        ? 'Cannot reach the control API. Check HTTPS, network access and the allowed Grafana origin.'\n        : error.message);\n    context.panel.patchFormValue({status: message});\n    context.grafana.notifyError(['Setpoint not confirmed', message]);\n  } finally {\n    clearTimeout(timer);\n    // Keep this credential out of panel defaults and dashboard exports.\n    context.panel.patchFormValue({operator_token: ''});\n    context.panel.enableSubmit();\n  }\n})();\n",
+          "code": "return (async () => {\n  const form = typeof context.panel.formValue === 'function'\n    ? context.panel.formValue()\n    : context.panel.formValue;\n  const value = Number(form.setpoint_c);\n  const api = context.grafana.templateService.replace('${control_api_url}').replace(/\\/$/, '');\n  if (!Number.isFinite(value) || value < 25 || value > 36) {\n    context.grafana.notifyError(['Setpoint', 'Enter a temperature between 25 and 36 °C.']);\n    return;\n  }\n  let endpoint;\n  try { endpoint = new URL(api); } catch (_) { endpoint = null; }\n  if (!endpoint || endpoint.protocol !== 'https:' || endpoint.hostname.endsWith('.invalid') ||\n      endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {\n    context.grafana.notifyError(['Configuration required', 'Set control_api_url to the HTTPS address of the control API.']);\n    return;\n  }\n  context.panel.disableSubmit();\n  context.panel.patchFormValue({status: 'Waiting for confirmation from the Pi...'});\n  const abort = new AbortController();\n  const timer = setTimeout(() => abort.abort(), 15000);\n  try {\n    const response = await fetch(api + '/api/setpoint', {\n      method: 'POST',\n      headers: {'Content-Type': 'application/json'},\n      body: JSON.stringify({setpoint_c: Math.round(value * 100) / 100}),\n      signal: abort.signal,\n      credentials: 'omit',\n      cache: 'no-store'\n    });\n    const data = await response.json();\n    if (!response.ok || data.status !== 'applied') {\n      const reason = {\n        400: 'Invalid setpoint.',\n        403: 'The Grafana origin is not allowed by the control API.',\n        409: 'A command is already in progress. Wait for confirmation before trying again.',\n        429: 'Wait at least one second between commands.',\n        502: 'The API did not receive a valid response from IoT Hub or the Pi.',\n        503: 'The Pi is offline or remote setpoint mode is not enabled.',\n        504: 'Confirmation is missing. Check the active setpoint in telemetry before retrying.'\n      }[response.status] || 'The command was not confirmed.';\n      throw new Error(reason);\n    }\n    const message = `${data.device_id}: ${Number(data.setpoint_c).toFixed(2)} °C applied`;\n    context.panel.patchFormValue({status: message});\n    context.grafana.notifySuccess(['Setpoint confirmed', message]);\n    context.grafana.refresh();\n  } catch (error) {\n    const message = error.name === 'AbortError'\n      ? 'Request timed out. Check the active setpoint in telemetry before retrying.'\n      : (error.message === 'Failed to fetch'\n        ? 'Cannot reach the control API. Check HTTPS, network access and the allowed Grafana origin.'\n        : error.message);\n    context.panel.patchFormValue({status: message});\n    context.grafana.notifyError(['Setpoint not confirmed', message]);\n  } finally {\n    clearTimeout(timer);\n    context.panel.enableSubmit();\n  }\n})();\n",
           "confirm": false,
           "url": "",
           "datasource": "",

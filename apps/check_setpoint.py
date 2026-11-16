@@ -1,7 +1,6 @@
 """Send a manual setpoint through the local VM API, without printing credentials."""
 import argparse
 import json
-import os
 from pathlib import Path
 import sys
 from urllib.request import Request, urlopen
@@ -16,12 +15,9 @@ def main():
     from airheater.control.setpoint import validate_setpoint
     try:
         value = validate_setpoint({'setpoint_c': args.setpoint})
-        from dotenv import load_dotenv
-        load_dotenv(Path(__file__).resolve().parents[1]/'.env', override=False, interpolate=False)
-        token = os.environ['AIRHEATER_CONTROL_TOKEN'].strip()
         request = Request('http://127.0.0.1:8765/api/setpoint',
             data=json.dumps({'setpoint_c': value}).encode(), method='POST',
-            headers={'Content-Type': 'application/json', 'Authorization': 'Bearer '+token})
+            headers={'Content-Type': 'application/json'})
         try:
             with urlopen(request, timeout=15) as response:
                 print(response.read(4096).decode())

@@ -5,13 +5,13 @@ const code = fs.readFileSync(new URL('../deploy/grafana/setpoint-submit.js', imp
 const execute = new Function('context', 'fetch', code);
 
 async function scenario({http=200, body={status:'applied', setpoint_c:32.12, device_id:'test'},
-                         value=32.123, token='test-only-not-a-real-secret-token-123456',
-                         api='https://control.example', networkError=false}={}) {
-  const values = {setpoint_c:value, operator_token:token, status:'none'};
+                         value=32.123,
+                         api='https://control.example', networkError=false, formAsFunction=false}={}) {
+  const values = {setpoint_c:value, status:'none'};
   const requests = [], success = [], errors = [];
   let enabled=true, refresh=0;
   const context = {
-    panel:{formValue:()=>({...values}), patchFormValue:p=>Object.assign(values,p),
+    panel:{formValue:formAsFunction ? ()=>({...values}) : {...values}, patchFormValue:p=>Object.assign(values,p),
            disableSubmit:()=>{enabled=false;}, enableSubmit:()=>{enabled=true;}},
     grafana:{templateService:{replace:()=>api}, notifySuccess:x=>success.push(x),
              notifyError:x=>errors.push(x), refresh:()=>{refresh++;}}
@@ -25,19 +25,19 @@ async function scenario({http=200, body={status:'applied', setpoint_c:32.12, dev
 }
 
 const ok=await scenario();
+assert.equal((await scenario({formAsFunction:true})).success.length,1);
 assert.equal(ok.success.length,1);
 assert.equal(ok.refresh,1);
 assert.equal(ok.enabled,true);
-assert.equal(ok.values.operator_token,'');
+assert.equal('Authorization' in ok.requests[0].options.headers,false);
 assert.deepEqual(JSON.parse(ok.requests[0].options.body),{setpoint_c:32.12});
-assert.match(ok.requests[0].options.headers.Authorization,/^Bearer /);
+
 assert.equal(ok.requests[0].url,'https://control.example/api/setpoint');
 assert.match(ok.values.status,/32.12/);
-for(const http of [401,403,409,429,502,503,504]) {
+for(const http of [403,409,429,502,503,504]) {
   const r=await scenario({http,body:{status:'error'}});
   assert.equal(r.success.length,0);
   assert.equal(r.errors.length,1);
-  assert.equal(r.values.operator_token,'');
   assert.equal(r.enabled,true);
 }
 for(const value of [24,37,NaN,Infinity]) {
@@ -53,4 +53,4 @@ const network=await scenario({networkError:true});
 assert.equal(network.errors.length,1);
 assert.equal(network.success.length,0);
 assert.equal(network.enabled,true);
-console.log('Form checks passed: confirmation, failures, validation, credential clearing and API payload');
+console.log('Form checks passed: confirmation, failures, validation, keyless submission and API payload');

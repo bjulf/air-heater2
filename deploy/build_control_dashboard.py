@@ -42,14 +42,13 @@ def main():
         return dict(uid=uid, id=eid, title=title, type=kind, value=value, width=None,
                     labelWidth=18, tooltip='', section='', hidden=False, unit='', **extra)
     panel = dict(id=7, type='volkovlabs-form-panel', title='Change Pi setpoint',
-        description='Controls airheater-sim-1. Enter the control key for each command; it is not stored in the dashboard JSON. '
+        description='Controls airheater-sim-1 without an operator key. '
                     'Confirmation comes from the Pi. The chart updates with the next telemetry message.',
         gridPos=dict(x=0, y=14, w=24, h=9), datasource=copy.deepcopy(ds), targets=[],
         options=dict(sync=False, updateEnabled='manual',
             layout=dict(variant='single', orientation='vertical', padding=12, sectionVariant='default', sections=[]),
             elements=[element('setpoint-field', 'setpoint_c', 'New setpoint [°C]', 'number', 34,
                               min=25, max=36, step=.01),
-                      element('operator-key', 'operator_token', 'Control key', 'password', ''),
                       element('command-status', 'status', 'Status', 'disabled', 'No command sent')],
             initial=dict(method='-', code='context.panel.enableSubmit();', url='', datasource='', header=[]),
             update=dict(method='-', code=(folder/'setpoint-submit.js').read_text(encoding='utf-8'),

@@ -1,4 +1,4 @@
-"""Authenticated setpoint gateway. Bind behind a TLS reverse proxy on the VM.
+"""Setpoint gateway without operator authentication. Bind behind a TLS reverse proxy on the VM.
 
 The service key stays on the VM. No database write access is needed.
 """
@@ -85,15 +85,13 @@ class IoTHubCommands:
 class ControlServer(ThreadingHTTPServer):
     daemon_threads = True
 
-    def __init__(self, address, commands, token, grafana_origin):
-        if len(token) < 32:
-            raise ValueError('Control token must contain at least 32 characters')
+    def __init__(self, address, commands, grafana_origin):
         origin = urlsplit(grafana_origin)
         if (origin.scheme not in ('http', 'https') or not origin.netloc
                 or origin.path not in ('', '/') or origin.query or origin.fragment
                 or origin.username or origin.password):
             raise ValueError('Set the exact Grafana origin, without a dashboard path')
-        self.commands, self.token = commands, token.encode()
+        self.commands = commands
         self.grafana_origin = grafana_origin.rstrip('/')
         self.command_lock = threading.Lock()
         self.last_command = -float('inf')
@@ -122,7 +120,7 @@ class ControlHandler(BaseHTTPRequestHandler):
         self.send_header('Vary', 'Origin')
         if self.headers.get('Origin') == self.server.grafana_origin:
             self.send_header('Access-Control-Allow-Origin', self.server.grafana_origin)
-            self.send_header('Access-Control-Allow-Headers', 'Authorization, Content-Type')
+            self.send_header('Access-Control-Allow-Headers', 'Content-Type')
             self.send_header('Access-Control-Allow-Methods', 'POST, OPTIONS')
         self.end_headers()
         self.wfile.write(raw)
@@ -144,9 +142,6 @@ class ControlHandler(BaseHTTPRequestHandler):
             return self.reply(404, {'status': 'not_found'})
         if not self.allowed_origin():
             return self.reply(403, {'status': 'origin_denied'})
-        authorization = self.headers.get('Authorization', '').encode()
-        if not hmac.compare_digest(authorization, b'Bearer '+self.server.token):
-            return self.reply(401, {'status': 'unauthorized'})
         if self.headers.get('Transfer-Encoding'):
             return self.reply(400, {'status': 'unsupported_transfer_encoding'})
         if self.headers.get_content_type() != 'application/json':

@@ -15,9 +15,8 @@ def main():
         load_dotenv(Path(__file__).resolve().parents[1]/'.env', override=False, interpolate=False)
         commands = IoTHubCommands(os.environ['IOTHUB_SERVICE_CONNECTION_STRING'],
                                  os.environ.get('AIRHEATER_CONTROL_DEVICE_ID', 'airheater-sim-1'))
-        token = os.environ['AIRHEATER_CONTROL_TOKEN'].strip()
         origin = os.environ['AIRHEATER_GRAFANA_ORIGIN'].strip()
-        with ControlServer(('127.0.0.1', 8765), commands, token, origin) as server:
+        with ControlServer(('127.0.0.1', 8765), commands, origin) as server:
             print('Control API on 127.0.0.1:8765; use TLS proxy for Grafana', flush=True)
             server.serve_forever()
     except KeyboardInterrupt:

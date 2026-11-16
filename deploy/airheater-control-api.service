@@ -1,5 +1,5 @@
 [Unit]
-Description=Air heater authenticated setpoint API
+Description=Air heater setpoint API
 Wants=network-online.target
 After=network-online.target
 

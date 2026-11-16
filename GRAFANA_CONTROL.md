@@ -13,7 +13,7 @@ samme dashboard-UID som før og kan erstatte det gamle dashboardet.
 - Minimum og maksimum rå temperatur i valgt periode, i °C.
 - Gjennomsnittlig pådrag i valgt periode, i V.
 - De tidligere grafene for temperatur/settpunkt, pådrag og målingsalder.
-- Et Business Forms-panel med tallfelt, kontrollnøkkel, Send-knapp og status.
+- Et Business Forms-panel med tallfelt, Send-knapp og status.
 
 Alle statistikkspørringer bruker valgt tidsperiode og Source-filter. Når flere
 enheter velges, beregnes statistikken samlet for de valgte målingene. Det er
@@ -27,7 +27,7 @@ eller databasemigrering er nødvendig.
 
 ```mermaid
 flowchart LR
-    G[Grafana: tallfelt og Send] -->|HTTPS, operatørnøkkel| C[Caddy på VM]
+    G[Grafana: tallfelt og Send] -->|HTTPS| C[Caddy på VM]
     C -->|127.0.0.1:8765| A[Python kommando-API]
     A -->|HTTPS, tjenestenøkkel| H[IoT Hub: setSetpoint]
     H --> P[Pi: kø for settpunkt]
@@ -48,10 +48,8 @@ forsøk. API-et gjør ikke automatiske kommandoretries.
 
 PostgreSQL-brukeren i Grafana beholder kun lesetilgang. API-et bruker ikke
 databasepassord. Azure-tjenestenøkkelen finnes bare i VM-ens private .env.
-En separat operatørnøkkel skrives inn i passordfeltet i Grafana ved hver kommando,
-og tømmes etter forsøket. Ingen nøkler inngår i dashboardfilen. Grafana-innlogging
-og operatørnøkkel er to separate mekanismer; det er ikke per-bruker Entra-autorisasjon
-i dette enkle lab-API-et.
+API-et krever ingen operatørnøkkel. Alle som når API-adressen kan sende settpunkt.
+CORS begrenser hvilke nettleseropprinnelser som tillates, men autentiserer ikke brukere.
 
 ## 1. Aktiver Business Forms
 
@@ -85,10 +83,9 @@ Enhetens DeviceId-string og Event Hubs-kompatibel mottaker-string kan ikke bruke
 Denne policyen gir service-tilgang i huben; API-et begrenser kommandoer videre til
 den konfigurerte enheten og den ene metoden. Ikke legg tjenestenøkkelen på Pi-en.
 
-Generer en separat operatørnøkkel lokalt på VM:
+Åpne innstillingene på VM:
 
 ```bash
-.venv/bin/python -c "import secrets; print(secrets.token_urlsafe(32))"
 nano .env
 ```
 
@@ -97,7 +94,6 @@ Legg til disse innstillingene uten å overskrive tidligere innstillinger:
 ```dotenv
 IOTHUB_SERVICE_CONNECTION_STRING=<policyens connection string, kun på VM>
 AIRHEATER_CONTROL_DEVICE_ID=airheater-sim-1
-AIRHEATER_CONTROL_TOKEN=<den genererte operatørnøkkelen>
 AIRHEATER_GRAFANA_ORIGIN=https://iotlab-f5adb6cnhsgka8e8.eno.grafana.azure.com
 ```
 
@@ -171,7 +167,7 @@ cd /home/azureuser/air-heater2
 ```
 
 Forvent svar med **status applied, setpoint_c 32.0 og device_id airheater-sim-1**.
-Verktøyet leser operatørnøkkelen fra .env og skriver den ikke ut.
+Verktøyet sender uten operatørnøkkel.
 Hvis Pi er offline, ikke kjører med --remote-setpoint eller ikke kan bekrefte
 kommandoen, skal testen feile i stedet for å rapportere applied.
 
@@ -224,9 +220,7 @@ curl --fail https://iotlab1.swedencentral.cloudapp.azure.com/health
 
 Caddy henter og fornyer et offentlig sertifikat når DNS og portene er riktige.
 Ikke bruk --insecure eller slå av sertifikatkontroll. Ved problemer sjekkes
-`journalctl -u caddy -n 40 --no-pager`. API-et krever operatørnøkkel for hver POST
-og tillater CORS fra nøyaktig studentens Grafana-origin. Caddy beholder Origin-
-og Authorization-headerne gjennom reverse proxyen.
+`journalctl -u caddy -n 40 --no-pager`. API-et krever ingen operatørnøkkel; behold HTTPS og temperaturvalideringen.
 
 ## 7. Importer dashboardet og send fra Grafana
 
@@ -236,14 +230,11 @@ og Authorization-headerne gjennom reverse proxyen.
    spørsmål om samme UID. Dette endrer ikke databasen.
 4. Se at de tre statistikkpanelene viser verdier for valgt tidsperiode.
 5. I **Change Pi setpoint**: velg eksempelvis **30.00 °C**.
-6. Skriv operatørnøkkelen fra AIRHEATER_CONTROL_TOKEN i passordfeltet og klikk
-   **Send setpoint**. Dette er ikke Azure-connection-stringen.
+6. Klikk **Send setpoint**.
 7. Vent på status **airheater-sim-1: 30.00 °C applied** i samme panel.
 8. Innen neste telemetrimelding skal settpunktkurven og SQL-radene vise 30 °C.
 
-Etter hvert sendeforsøk tømmes passordfeltet. Save Default-knappen er skjult,
-og brukerinput synkroniseres ikke til lagrede panelstandarder. Ikke legg
-kontrollnøkkelen inn som en standardverdi ved redigering av panelet.
+Det finnes ikke noe Control key-felt. Azure-connection-stringen beholdes privat på VM-en.
 
 API-adressen er ferdig konfigurert i den skjulte konstantvariabelen
 control_api_url. Hvis VM-navnet endres, oppdater denne variabelen og Caddyfile.
@@ -258,7 +249,7 @@ forklaring i panelet. Ved tvetydig timeout, sjekk telemetrien før nytt forsøk.
 
 Lokal Windows-verifikasjon: 31 unittest-tester kjørt, 28 bestått og 3 hoppet over
 (ekte PostgreSQL uten test-DSN og to Linux-spesifikke låstester). Skjemakoden
-bestod også Node-testene for bekreftelse, feil, validering og tømming av nøkkel.
+bestod også Node-testene for bekreftelse, feil, validering og sending uten operatørnøkkel.
 
 ```bash
 python -m unittest discover -s tests
@@ -266,7 +257,7 @@ node tests/test_setpoint_form.mjs
 ```
 
 Testene bruker falske Azure-svar og lokal HTTP. De kontrollerer streng validering,
-autentisering, CORS, feil/timeouts, ingen automatisk retry av kommandoer,
+sending uten operatørnøkkel, CORS, feil/timeouts, ingen automatisk retry av kommandoer,
 bekreftelse fra faktisk simulert kontrollsløyfe, videre telemetri, tømming av
 passordfelt og at JSON-payloaden bare inneholder settpunkt. De bekrefter ikke
 tilgang til ekte IoT Hub eller at grafanatillegget er installert på serveren.

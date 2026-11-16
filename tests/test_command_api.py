@@ -14,7 +14,6 @@ from urllib.parse import parse_qs
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from airheater.telemetry.command_api import ControlServer, IoTHubCommands
 
-TOKEN = 'test-only-operator-token-not-a-real-secret-1234'
 ORIGIN = 'https://example.grafana.azure.com'
 
 
@@ -23,7 +22,7 @@ class ControlApiTests(unittest.TestCase):
         self.commands = Mock(device_id='test-device')
         self.commands.invoke.side_effect = lambda value: (200, dict(
             status='applied', setpoint_c=value, device_id='test-device'))
-        self.server = ControlServer(('127.0.0.1', 0), self.commands, TOKEN, ORIGIN)
+        self.server = ControlServer(('127.0.0.1', 0), self.commands, ORIGIN)
         self.thread = threading.Thread(target=lambda: self.server.serve_forever(poll_interval=.01))
         self.thread.start()
 
@@ -32,7 +31,7 @@ class ControlApiTests(unittest.TestCase):
         self.server.server_close()
         self.thread.join(2)
 
-    def request(self, data='{"setpoint_c":32.123}', token=TOKEN, origin=ORIGIN, method='POST'):
+    def request(self, data='{"setpoint_c":32.123}', token=None, origin=ORIGIN, method='POST'):
         connection = HTTPConnection('127.0.0.1', self.server.server_port, timeout=3)
         headers = {'Content-Type': 'application/json', 'Origin': origin}
         if token is not None:
@@ -43,24 +42,22 @@ class ControlApiTests(unittest.TestCase):
         connection.close()
         return result
 
-    def test_authenticated_command_and_cors(self):
+    def test_command_without_token_and_cors(self):
         code, body, headers = self.request()
         self.assertEqual(code, 200)
         self.assertEqual(body['setpoint_c'], 32.12)
         self.assertEqual(headers['Access-Control-Allow-Origin'], ORIGIN)
         self.commands.invoke.assert_called_once_with(32.12)
-        self.assertNotIn(TOKEN, json.dumps(body))
 
-    def test_auth_origin_and_validation_do_not_invoke(self):
+    def test_origin_and_validation_do_not_invoke(self):
         for token, origin, data, expected in [
-                (None, ORIGIN, '{}', 401), ('wrong', ORIGIN, '{}', 401),
-                (TOKEN, 'https://other.example', '{}', 403),
-                (TOKEN, ORIGIN, '{"setpoint_c":37}', 400),
-                (TOKEN, ORIGIN, '{"setpoint_c":true}', 400),
-                (TOKEN, ORIGIN, '{"setpoint_c":NaN}', 400),
-                (TOKEN, ORIGIN, '{"setpoint_c":31,"setpoint_c":32}', 400),
-                (TOKEN, ORIGIN, '{"setpoint_c":31,"kp":4}', 400),
-                (TOKEN, ORIGIN, 'x'*1025, 413)]:
+                (None, 'https://other.example', '{}', 403),
+                (None, ORIGIN, '{"setpoint_c":37}', 400),
+                (None, ORIGIN, '{"setpoint_c":true}', 400),
+                (None, ORIGIN, '{"setpoint_c":NaN}', 400),
+                (None, ORIGIN, '{"setpoint_c":31,"setpoint_c":32}', 400),
+                (None, ORIGIN, '{"setpoint_c":31,"kp":4}', 400),
+                (None, ORIGIN, 'x'*1025, 413)]:
             with self.subTest(expected=expected, data=data[:50]):
                 self.assertEqual(self.request(data, token, origin)[0], expected)
         self.commands.invoke.assert_not_called()

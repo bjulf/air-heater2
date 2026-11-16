@@ -235,10 +235,10 @@ og Authorization-headerne gjennom reverse proxyen.
 3. Velg den eksisterende PostgreSQL-datakilden. Erstatt tidligere dashboard ved
    spørsmål om samme UID. Dette endrer ikke databasen.
 4. Se at de tre statistikkpanelene viser verdier for valgt tidsperiode.
-5. I **Endre settpunkt på Pi**: velg eksempelvis **30.00 °C**.
+5. I **Change Pi setpoint**: velg eksempelvis **30.00 °C**.
 6. Skriv operatørnøkkelen fra AIRHEATER_CONTROL_TOKEN i passordfeltet og klikk
-   **Send settpunkt**. Dette er ikke Azure-connection-stringen.
-7. Vent på status **airheater-sim-1: 30.00 °C tatt i bruk** i samme panel.
+   **Send setpoint**. Dette er ikke Azure-connection-stringen.
+7. Vent på status **airheater-sim-1: 30.00 °C applied** i samme panel.
 8. Innen neste telemetrimelding skal settpunktkurven og SQL-radene vise 30 °C.
 
 Etter hvert sendeforsøk tømmes passordfeltet. Save Default-knappen er skjult,

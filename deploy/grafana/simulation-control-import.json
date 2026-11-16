@@ -2,7 +2,7 @@
   "uid": "airheater-simulation",
   "title": "Air heater control and statistics",
   "schemaVersion": 39,
-  "version": 5,
+  "version": 6,
   "timezone": "utc",
   "refresh": "5s",
   "time": {
@@ -126,8 +126,8 @@
     },
     {
       "id": 4,
-      "title": "Gjennomsnittlig absolutt avvik",
-      "description": "Prøvegjennomsnitt av |settpunkt - rå temperatur| i valgt periode. Gamle målinger uten settpunkt utelates. Ikke regulatorens filtrerte avvik.",
+      "title": "Mean absolute error",
+      "description": "Sample mean of |setpoint - raw temperature| over the selected period. Measurements without a setpoint are excluded. This is not the filtered control error.",
       "type": "stat",
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -143,7 +143,7 @@
         "defaults": {
           "unit": "celsius",
           "decimals": 2,
-          "noValue": "Ingen målinger"
+          "noValue": "No measurements"
         },
         "overrides": []
       },
@@ -165,14 +165,14 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT avg(abs(setpoint_c - temperature_c)) AS \"Absolutt avvik\" FROM public.simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring}) AND setpoint_c IS NOT NULL"
+          "rawSql": "SELECT avg(abs(setpoint_c - temperature_c)) AS \"Absolute error\" FROM public.simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring}) AND setpoint_c IS NOT NULL"
         }
       ]
     },
     {
       "id": 5,
-      "title": "Min. / maks. temperatur",
-      "description": "Laveste og høyeste rå temperatur i valgt periode og valgte enheter.",
+      "title": "Min. / max. temperature",
+      "description": "Lowest and highest raw temperature for the selected period and devices.",
       "type": "stat",
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -188,7 +188,7 @@
         "defaults": {
           "unit": "celsius",
           "decimals": 2,
-          "noValue": "Ingen målinger"
+          "noValue": "No measurements"
         },
         "overrides": []
       },
@@ -210,14 +210,14 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT min(temperature_c) AS \"Minimum\", max(temperature_c) AS \"Maksimum\" FROM public.simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring})"
+          "rawSql": "SELECT min(temperature_c) AS \"Minimum\", max(temperature_c) AS \"Maximum\" FROM public.simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring})"
         }
       ]
     },
     {
       "id": 6,
-      "title": "Gjennomsnittlig pådrag",
-      "description": "Prøvegjennomsnitt i valgt periode. Pådrag i volt, ikke elektrisk effekt eller energi.",
+      "title": "Mean heater input",
+      "description": "Sample mean over the selected period. Input voltage, not electrical power or energy.",
       "type": "stat",
       "datasource": {
         "type": "grafana-postgresql-datasource",
@@ -233,7 +233,7 @@
         "defaults": {
           "unit": "volt",
           "decimals": 2,
-          "noValue": "Ingen målinger"
+          "noValue": "No measurements"
         },
         "overrides": []
       },
@@ -255,15 +255,15 @@
           "refId": "A",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT avg(heater_voltage) AS \"Pådrag\" FROM public.simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring})"
+          "rawSql": "SELECT avg(heater_voltage) AS \"Heater input\" FROM public.simulation_measurements WHERE $__timeFilter(measured_at) AND device_id IN (${device:sqlstring})"
         }
       ]
     },
     {
       "id": 7,
       "type": "volkovlabs-form-panel",
-      "title": "Endre settpunkt på Pi",
-      "description": "Gjelder airheater-sim-1. Kontrollnøkkel fylles inn per kommando og lagres ikke i JSON. Bekreftelsen kommer fra Pi. Grafen oppdateres ved neste telemetrimelding.",
+      "title": "Change Pi setpoint",
+      "description": "Controls airheater-sim-1. Enter the control key for each command; it is not stored in the dashboard JSON. Confirmation comes from the Pi. The chart updates with the next telemetry message.",
       "gridPos": {
         "x": 0,
         "y": 14,
@@ -289,7 +289,7 @@
           {
             "uid": "setpoint-field",
             "id": "setpoint_c",
-            "title": "Nytt settpunkt [°C]",
+            "title": "New setpoint [°C]",
             "type": "number",
             "value": 34,
             "width": null,
@@ -305,7 +305,7 @@
           {
             "uid": "operator-key",
             "id": "operator_token",
-            "title": "Kontrollnøkkel",
+            "title": "Control key",
             "type": "password",
             "value": "",
             "width": null,
@@ -320,7 +320,7 @@
             "id": "status",
             "title": "Status",
             "type": "disabled",
-            "value": "Ingen kommando sendt",
+            "value": "No command sent",
             "width": null,
             "labelWidth": 18,
             "tooltip": "",
@@ -338,7 +338,7 @@
         },
         "update": {
           "method": "-",
-          "code": "return (async () => {\n  const form = context.panel.formValue();\n  const value = Number(form.setpoint_c);\n  const token = String(form.operator_token || '').trim();\n  const api = context.grafana.templateService.replace('${control_api_url}').replace(/\\/$/, '');\n  if (!Number.isFinite(value) || value < 25 || value > 36) {\n    context.grafana.notifyError(['Settpunkt', 'Velg en temperatur fra 25 til 36 °C.']);\n    return;\n  }\n  let endpoint;\n  try { endpoint = new URL(api); } catch (_) { endpoint = null; }\n  if (!endpoint || endpoint.protocol !== 'https:' || endpoint.hostname.endsWith('.invalid') ||\n      endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {\n    context.grafana.notifyError(['Oppsett mangler', 'Sett control_api_url til API-ets HTTPS-adresse.']);\n    return;\n  }\n  if (token.length < 32) {\n    context.grafana.notifyError(['Kontrollnøkkel', 'Skriv inn kontrollnøkkelen fra VM-oppsettet.']);\n    return;\n  }\n  context.panel.disableSubmit();\n  context.panel.patchFormValue({status: 'Venter på bekreftelse fra Pi …'});\n  const abort = new AbortController();\n  const timer = setTimeout(() => abort.abort(), 15000);\n  try {\n    const response = await fetch(api + '/api/setpoint', {\n      method: 'POST',\n      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},\n      body: JSON.stringify({setpoint_c: Math.round(value * 100) / 100}),\n      signal: abort.signal,\n      credentials: 'omit',\n      cache: 'no-store'\n    });\n    const data = await response.json();\n    if (!response.ok || data.status !== 'applied') {\n      const reason = {\n        400: 'Ugyldig settpunkt.', 401: 'Kontrollnøkkelen er feil.',\n        403: 'Grafana-adressen er ikke tillatt i API-oppsettet.',\n        409: 'En kommando behandles allerede. Prøv igjen etter bekreftelse.',\n        429: 'Vent minst ett sekund mellom kommandoer.',\n        502: 'API-et fikk ikke gyldig svar fra IoT Hub eller Pi.',\n        503: 'Pi er ikke tilkoblet eller fjernstyringsmodus er ikke startet.',\n        504: 'Bekreftelse mangler. Kontroller aktivt settpunkt i telemetrien før nytt forsøk.'\n      }[response.status] || 'Kommandoen ble ikke bekreftet.';\n      throw new Error(reason);\n    }\n    const message = `${data.device_id}: ${Number(data.setpoint_c).toFixed(2)} °C tatt i bruk`;\n    context.panel.patchFormValue({status: message});\n    context.grafana.notifySuccess(['Settpunkt bekreftet', message]);\n    context.grafana.refresh();\n  } catch (error) {\n    const message = error.name === 'AbortError'\n      ? 'Tidsavbrudd: kontroller aktivt settpunkt i telemetrien før nytt forsøk.'\n      : (error.message === 'Failed to fetch'\n        ? 'Ingen API-forbindelse. Kontroller HTTPS, nettverk og tillatt Grafana-adresse.'\n        : error.message);\n    context.panel.patchFormValue({status: message});\n    context.grafana.notifyError(['Settpunkt ikke bekreftet', message]);\n  } finally {\n    clearTimeout(timer);\n    // Keep this credential out of panel defaults and dashboard exports.\n    context.panel.patchFormValue({operator_token: ''});\n    context.panel.enableSubmit();\n  }\n})();\n",
+          "code": "return (async () => {\n  const form = context.panel.formValue();\n  const value = Number(form.setpoint_c);\n  const token = String(form.operator_token || '').trim();\n  const api = context.grafana.templateService.replace('${control_api_url}').replace(/\\/$/, '');\n  if (!Number.isFinite(value) || value < 25 || value > 36) {\n    context.grafana.notifyError(['Setpoint', 'Enter a temperature between 25 and 36 °C.']);\n    return;\n  }\n  let endpoint;\n  try { endpoint = new URL(api); } catch (_) { endpoint = null; }\n  if (!endpoint || endpoint.protocol !== 'https:' || endpoint.hostname.endsWith('.invalid') ||\n      endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {\n    context.grafana.notifyError(['Configuration required', 'Set control_api_url to the HTTPS address of the control API.']);\n    return;\n  }\n  if (token.length < 32) {\n    context.grafana.notifyError(['Control key', 'Enter the control key configured on the VM.']);\n    return;\n  }\n  context.panel.disableSubmit();\n  context.panel.patchFormValue({status: 'Waiting for confirmation from the Pi...'});\n  const abort = new AbortController();\n  const timer = setTimeout(() => abort.abort(), 15000);\n  try {\n    const response = await fetch(api + '/api/setpoint', {\n      method: 'POST',\n      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},\n      body: JSON.stringify({setpoint_c: Math.round(value * 100) / 100}),\n      signal: abort.signal,\n      credentials: 'omit',\n      cache: 'no-store'\n    });\n    const data = await response.json();\n    if (!response.ok || data.status !== 'applied') {\n      const reason = {\n        400: 'Invalid setpoint.', 401: 'Incorrect control key.',\n        403: 'The Grafana origin is not allowed by the control API.',\n        409: 'A command is already in progress. Wait for confirmation before trying again.',\n        429: 'Wait at least one second between commands.',\n        502: 'The API did not receive a valid response from IoT Hub or the Pi.',\n        503: 'The Pi is offline or remote setpoint mode is not enabled.',\n        504: 'Confirmation is missing. Check the active setpoint in telemetry before retrying.'\n      }[response.status] || 'The command was not confirmed.';\n      throw new Error(reason);\n    }\n    const message = `${data.device_id}: ${Number(data.setpoint_c).toFixed(2)} °C applied`;\n    context.panel.patchFormValue({status: message});\n    context.grafana.notifySuccess(['Setpoint confirmed', message]);\n    context.grafana.refresh();\n  } catch (error) {\n    const message = error.name === 'AbortError'\n      ? 'Request timed out. Check the active setpoint in telemetry before retrying.'\n      : (error.message === 'Failed to fetch'\n        ? 'Cannot reach the control API. Check HTTPS, network access and the allowed Grafana origin.'\n        : error.message);\n    context.panel.patchFormValue({status: message});\n    context.grafana.notifyError(['Setpoint not confirmed', message]);\n  } finally {\n    clearTimeout(timer);\n    // Keep this credential out of panel defaults and dashboard exports.\n    context.panel.patchFormValue({operator_token: ''});\n    context.panel.enableSubmit();\n  }\n})();\n",
           "confirm": false,
           "url": "",
           "datasource": "",
@@ -351,7 +351,7 @@
         },
         "submit": {
           "variant": "primary",
-          "text": "Send settpunkt",
+          "text": "Send setpoint",
           "icon": "cloud-upload",
           "foregroundColor": "",
           "backgroundColor": ""

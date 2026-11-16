@@ -4,22 +4,22 @@ return (async () => {
   const token = String(form.operator_token || '').trim();
   const api = context.grafana.templateService.replace('${control_api_url}').replace(/\/$/, '');
   if (!Number.isFinite(value) || value < 25 || value > 36) {
-    context.grafana.notifyError(['Settpunkt', 'Velg en temperatur fra 25 til 36 °C.']);
+    context.grafana.notifyError(['Setpoint', 'Enter a temperature between 25 and 36 °C.']);
     return;
   }
   let endpoint;
   try { endpoint = new URL(api); } catch (_) { endpoint = null; }
   if (!endpoint || endpoint.protocol !== 'https:' || endpoint.hostname.endsWith('.invalid') ||
       endpoint.username || endpoint.password || endpoint.search || endpoint.hash) {
-    context.grafana.notifyError(['Oppsett mangler', 'Sett control_api_url til API-ets HTTPS-adresse.']);
+    context.grafana.notifyError(['Configuration required', 'Set control_api_url to the HTTPS address of the control API.']);
     return;
   }
   if (token.length < 32) {
-    context.grafana.notifyError(['Kontrollnøkkel', 'Skriv inn kontrollnøkkelen fra VM-oppsettet.']);
+    context.grafana.notifyError(['Control key', 'Enter the control key configured on the VM.']);
     return;
   }
   context.panel.disableSubmit();
-  context.panel.patchFormValue({status: 'Venter på bekreftelse fra Pi …'});
+  context.panel.patchFormValue({status: 'Waiting for confirmation from the Pi...'});
   const abort = new AbortController();
   const timer = setTimeout(() => abort.abort(), 15000);
   try {
@@ -34,28 +34,28 @@ return (async () => {
     const data = await response.json();
     if (!response.ok || data.status !== 'applied') {
       const reason = {
-        400: 'Ugyldig settpunkt.', 401: 'Kontrollnøkkelen er feil.',
-        403: 'Grafana-adressen er ikke tillatt i API-oppsettet.',
-        409: 'En kommando behandles allerede. Prøv igjen etter bekreftelse.',
-        429: 'Vent minst ett sekund mellom kommandoer.',
-        502: 'API-et fikk ikke gyldig svar fra IoT Hub eller Pi.',
-        503: 'Pi er ikke tilkoblet eller fjernstyringsmodus er ikke startet.',
-        504: 'Bekreftelse mangler. Kontroller aktivt settpunkt i telemetrien før nytt forsøk.'
-      }[response.status] || 'Kommandoen ble ikke bekreftet.';
+        400: 'Invalid setpoint.', 401: 'Incorrect control key.',
+        403: 'The Grafana origin is not allowed by the control API.',
+        409: 'A command is already in progress. Wait for confirmation before trying again.',
+        429: 'Wait at least one second between commands.',
+        502: 'The API did not receive a valid response from IoT Hub or the Pi.',
+        503: 'The Pi is offline or remote setpoint mode is not enabled.',
+        504: 'Confirmation is missing. Check the active setpoint in telemetry before retrying.'
+      }[response.status] || 'The command was not confirmed.';
       throw new Error(reason);
     }
-    const message = `${data.device_id}: ${Number(data.setpoint_c).toFixed(2)} °C tatt i bruk`;
+    const message = `${data.device_id}: ${Number(data.setpoint_c).toFixed(2)} °C applied`;
     context.panel.patchFormValue({status: message});
-    context.grafana.notifySuccess(['Settpunkt bekreftet', message]);
+    context.grafana.notifySuccess(['Setpoint confirmed', message]);
     context.grafana.refresh();
   } catch (error) {
     const message = error.name === 'AbortError'
-      ? 'Tidsavbrudd: kontroller aktivt settpunkt i telemetrien før nytt forsøk.'
+      ? 'Request timed out. Check the active setpoint in telemetry before retrying.'
       : (error.message === 'Failed to fetch'
-        ? 'Ingen API-forbindelse. Kontroller HTTPS, nettverk og tillatt Grafana-adresse.'
+        ? 'Cannot reach the control API. Check HTTPS, network access and the allowed Grafana origin.'
         : error.message);
     context.panel.patchFormValue({status: message});
-    context.grafana.notifyError(['Settpunkt ikke bekreftet', message]);
+    context.grafana.notifyError(['Setpoint not confirmed', message]);
   } finally {
     clearTimeout(timer);
     // Keep this credential out of panel defaults and dashboard exports.
